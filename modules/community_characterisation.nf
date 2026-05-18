@@ -85,7 +85,9 @@ process profile_function {
   tuple val(meta), path("*_3_reactions.tsv"), emit: profile_function_reactions
   tuple val(meta), path("*_4_pathabundance.tsv"), emit: profile_function_pa
   tuple val(meta), path("*_profile_functions_mqc.yaml"), emit: profile_function_log
-  tuple val(meta), path("${name}_humann_temp/${name}_diamond_unaligned.fa"), emit: unmapped_reads, optional: true
+  // For before diamond use ${name}_bowtie2_unaligned.fa
+  // For after diamond use ${name}_diamond_unaligned.fa
+  tuple val(meta), path("${name}_humann_temp/${name}_bowtie2_unaligned.fa"), emit: unmapped_reads, optional: true
 
   when:
   !params.skipHumann
