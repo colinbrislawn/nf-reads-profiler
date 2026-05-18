@@ -100,7 +100,7 @@ workflow {
   // Parse input samplesheet using nf-validation plugin
   channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
       .branch { row ->
-          skip:  params.skipCompleted && output_exists(row[0])
+          skip:  params.skipCompleted.toBoolean() && output_exists(row[0])
           local: row[1]                                    // Has fastq_1 defined
           sra:   !row[1] && row[3] =~ /^[ESD]RR[0-9]+$/  // No local files but has SRA accession
       }
