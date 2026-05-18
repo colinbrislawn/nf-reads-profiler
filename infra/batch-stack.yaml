@@ -49,7 +49,7 @@ Parameters:
 
   MaxvCPUsSpot:
     Type: Number
-    Default: 32
+    Default: 96
     Description: Maximum vCPUs across all spot instances (controls pipeline parallelism)
 
   MaxvCPUsOnDemand:
