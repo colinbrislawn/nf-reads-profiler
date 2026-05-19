@@ -231,6 +231,14 @@ Resources:
                   - !Sub "${S3WorkDirBucket.Arn}/*"
                   - !Sub "arn:aws:s3:::${RunsBucketName}"
                   - !Sub "arn:aws:s3:::${RunsBucketName}/*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                Resource:
+                  - arn:aws:s3:::gutz-data-globus
+                  - arn:aws:s3:::gutz-data-globus/*
         - PolicyName: CloudWatchLogs
           PolicyDocument:
             Version: '2012-10-17'
