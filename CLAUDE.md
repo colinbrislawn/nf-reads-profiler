@@ -12,27 +12,33 @@ microbiome quantification.
 
 ## Running the pipeline
 
+**Always use screen for any run that takes more than a few minutes.** Closing the
+terminal (or the Claude Code client) kills the Nextflow process — screen keeps it
+alive across SSH disconnects and client exits.
+
 ```bash
-# Local — basic (Docker, small test data)
+# ── Screen basics ──────────────────────────────────────────────────────────
+screen -S nf-run          # start a named session
+# Detach: Ctrl+A D   |   Reattach: screen -r nf-run   |   List: screen -ls
+
+# ── Local — basic (Docker, small test data) ────────────────────────────────
 nextflow run main.nf -profile test
 
-# Local — with MEDI shortcut (I13); use a screen session so SSH drops don't kill it
+# ── Local — with MEDI (I13); screen keeps it alive ─────────────────────────
 screen -S nf-test
 nextflow run main.nf -profile test_medi -resume
-# Detach: Ctrl+A D  |  Reattach: screen -r nf-test
-
-# Monitor from another terminal
+# Monitor from another terminal:
 tail -f .nextflow.log
-# or the tee'd log if launched via screen as above:
-tail -f /tmp/nf-test-medi.log
 
-# AWS Batch — primary production path
+# ── AWS Batch — primary production path ────────────────────────────────────
+# Launch inside screen so SSH disconnect / Claude Code exit won't kill it:
+screen -S nf-aws
 nextflow run main.nf -profile aws \
   --input s3://gutz-nf-reads-profilers-runs/samplesheets/<name>.csv \
   --project <project_name> -resume
-
-# Enable MEDI (food-microbiome quant) on either profile
-nextflow run main.nf -profile <p> ... --enable_medi
+# Detach: Ctrl+A D  |  Reattach: screen -r nf-aws
+# From another terminal, tail Nextflow's own log:
+tail -f .nextflow.log
 ```
 
 Profile-to-config mapping is in `nextflow.config`:

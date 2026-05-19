@@ -1,30 +1,55 @@
 ## Acknowledgement
 
-This pipeline is based on the original [YAMP](https://github.com/alesssia/YAMP) repo. Modifications have been made to make use of our infrastrucutre more readily. If you're here for a more customizable and flexible pipeline, please consider taking a look at the original repo.
+This pipeline is based on the original [YAMP](https://github.com/alesssia/YAMP) repo. Modifications have been made to make use of our infrastructure more readily. If you're here for a more customizable and flexible pipeline, please consider taking a look at the original repo.
 
 # nf-reads-profiler
 
+Nextflow DSL2 pipeline for metagenomic read profiling. Core tools: MetaPhlAn4,
+HUMAnN4, fastp, MultiQC. Optional MEDI subworkflow (Kraken2/Bracken/Architeuthis)
+for food microbiome quantification. Runs on AWS Batch (primary) with local Docker
+for development.
+
 ## Usage
 
-```{bash}
-aws batch submit-job \
-    --profile maf \
-    --job-name nf-rp-1101-2 \
-    --job-queue priority-maf-pipelines \
-    --job-definition nextflow-production \
-    --container-overrides command=fischbachlab/nf-reads-profiler,\
-"--prefix","branch_metaphlan4",\
-"--singleEnd","false",\
-"--reads1","s3://dev-scratch/fastq/small/random_ncbi_reads_with_duplicated_and_contaminants_R1.fastq.gz",\
-"--reads2","s3://dev-scratch/fastq/small/random_ncbi_reads_with_duplicated_and_contaminants_R2.fastq.gz"
-```
+### AWS Batch (production)
 
-### Cross account test
+**Always launch inside `screen` — SSH disconnects and Claude Code client exits will
+kill a foreground Nextflow process.**
 
 ```bash
-"--reads1","s3://czb-seqbot/fastqs/200817_NB501938_0185_AH23FNBGXG/MITI_Purification_Healthy/E8_SH0000236_0619-Cult-2-481_S22_R1_001.fastq.gz",\
-"--reads2","s3://czb-seqbot/fastqs/200817_NB501938_0185_AH23FNBGXG/MITI_Purification_Healthy/E8_SH0000236_0619-Cult-2-481_S22_R2_001.fastq.gz"
+# Start a named screen session and run the pipeline
+screen -S nf-aws
+nextflow run main.nf -profile aws \
+  --input s3://gutz-nf-reads-profilers-runs/samplesheets/<name>.csv \
+  --project <project_name> -resume
+
+# From another terminal: follow Nextflow's own log
+tail -f .nextflow.log
 ```
+
+Samplesheets live in `s3://gutz-nf-reads-profilers-runs/samplesheets/`. See
+`samplesheets/slice.md` (also in that bucket) for how to build new slices.
+
+### Local (Docker, dev/test)
+
+```bash
+# Basic test — small bundled data, no screen needed
+nextflow run main.nf -profile test
+
+# With MEDI food-microbiome quant (requires local SSD DBs at /mnt/scratch/ssddbs/)
+screen -S nf-test
+nextflow run main.nf -profile test_medi -resume
+```
+
+### Infrastructure scripts
+
+| Script | Purpose |
+|--------|---------|
+| `infra/smoke-test.sh` | 2-sample end-to-end smoke test on AWS Batch |
+| `infra/max005_test.sh` | 5-sample scaling baseline (I16); must run under screen |
+| `infra/medi_test.sh` | Full MEDI end-to-end test; must run under screen |
+| `infra/packer/enable-fsr.sh` | Enable EBS Fast Snapshot Restore so spot queue VMs dehydrate faster |
+| `infra/packer/disable-fsr.sh` | Disable FSR after run to stop $0.75/AZ/hr billing |
 
 ## Databases
 
