@@ -40,16 +40,16 @@ Parameters:
 
   SpotBidPercentage:
     Type: Number
-    Default: 70
+    Default: 50
     MinValue: 1
     MaxValue: 100
     Description: >
-      Spot bid as % of on-demand price. Graviton spot prices in us-east-2 rarely
-      exceed 35% of on-demand, so 70% provides a comfortable margin.
+      Spot bid as % of full on-demand price. This is a maximum price. We actually pay
+      the current spot price, which is often much lower than the bid!
 
   MaxvCPUsSpot:
     Type: Number
-    Default: 96
+    Default: 256
     Description: Maximum vCPUs across all spot instances (controls pipeline parallelism)
 
   MaxvCPUsOnDemand:
