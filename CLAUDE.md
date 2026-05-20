@@ -31,14 +31,23 @@ nextflow run main.nf -profile test_medi -resume
 tail -f .nextflow.log
 
 # ── AWS Batch — primary production path ────────────────────────────────────
-# Launch inside screen so SSH disconnect / Claude Code exit won't kill it:
+# 1. Enable FSR so spot workers boot fast (bills $2.25/hr; run once before pipeline)
+FSR_CONFIRM=yes infra/packer/enable-fsr.sh
+# Polls until all 3 us-east-2 AZs reach 'enabled' (~15–30 min for a 150 GB snapshot)
+
+# 2. Launch inside screen so SSH disconnect / Claude Code exit won't kill it:
 screen -S nf-aws
 nextflow run main.nf -profile aws \
   --input s3://gutz-nf-reads-profilers-runs/samplesheets/<name>.csv \
   --project <project_name> -resume
 # Detach: Ctrl+A D  |  Reattach: screen -r nf-aws
-# From another terminal, tail Nextflow's own log:
+
+# 3. From another terminal, tail Nextflow's own log:
 tail -f .nextflow.log
+
+# 4. After all runs are done for the day, stop FSR billing:
+infra/packer/disable-fsr.sh
+# Kill-switch: disables ALL FSR-enabled snapshots in us-east-2 (catches stale AMI rollovers too)
 ```
 
 Profile-to-config mapping is in `nextflow.config`:

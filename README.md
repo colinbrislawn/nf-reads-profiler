@@ -17,15 +17,28 @@ for development.
 kill a foreground Nextflow process.**
 
 ```bash
-# Start a named screen session and run the pipeline
+# 1. Enable FSR so spot workers boot fast (bills $2.25/hr — run once before the pipeline)
+FSR_CONFIRM=yes infra/packer/enable-fsr.sh
+# Takes 15–30 min to reach 'enabled'; script polls and exits when ready.
+
+# 2. Start a named screen session and run the pipeline
 screen -S nf-aws
 nextflow run main.nf -profile aws \
   --input s3://gutz-nf-reads-profilers-runs/samplesheets/<name>.csv \
   --project <project_name> -resume
 
-# From another terminal: follow Nextflow's own log
+# 3. From another terminal: follow Nextflow's own log
 tail -f .nextflow.log
+
+# 4. After the pipeline finishes: stop FSR billing
+infra/packer/disable-fsr.sh
 ```
+
+`enable-fsr.sh` resolves the current worker AMI from SSM (`/nf-reads-profiler/ami-id`)
+and enables FSR across all three `us-east-2` AZs. `disable-fsr.sh` is a kill-switch
+that disables all FSR-enabled snapshots in the region — including any stale AMI snapshots
+after a rollover. Minimum billing is 1 hour per enable-cycle regardless of how quickly
+you disable.
 
 Samplesheets live in `s3://gutz-nf-reads-profilers-runs/samplesheets/`. See
 `samplesheets/slice.md` (also in that bucket) for how to build new slices.
