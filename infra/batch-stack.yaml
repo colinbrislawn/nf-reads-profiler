@@ -130,6 +130,88 @@ Resources:
   # It is NOT created by this stack. IAM policies below reference it by name.
 
 # ---------------------------------------------------------------------------
+# ECR
+# ---------------------------------------------------------------------------
+# Private registries for pipeline container images.
+# DeletionPolicy: Retain keeps images safe if the stack is torn down.
+# ScanOnPush: true enables free basic vulnerability scanning on every push.
+
+  EcrMetaphlan:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: metaphlan
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  EcrAwsCliBash:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: aws-cli-bash
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  EcrSraToolsBash:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: sra-tools-bash
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  EcrMedi:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: medi
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  EcrHumann:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: humann
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+# ---------------------------------------------------------------------------
 # IAM
 # ---------------------------------------------------------------------------
 
@@ -354,6 +436,21 @@ Resources:
               - events:RemoveTargets
               - events:ListTargetsByRule
             Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${ProjectTag}-*"
+          - Sid: ECRPushPull
+            Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+              - ecr:CreateRepository
+              - ecr:DescribeRepositories
+              - ecr:BatchCheckLayerAvailability
+              - ecr:InitiateLayerUpload
+              - ecr:UploadLayerPart
+              - ecr:CompleteLayerUpload
+              - ecr:PutImage
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+              - ecr:TagResource
+            Resource: '*'
 
 # ---------------------------------------------------------------------------
 # Networking
