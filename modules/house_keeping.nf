@@ -28,7 +28,7 @@ process get_software_versions {
   echo $workflow.nextflow.version > v_nextflow.txt
 
   echo $params.docker_container_fastp | cut -d: -f 2 > v_fastp.txt
-  echo $params.docker_container_humann3 | cut -d: -f 2 > v_humann.txt
+  echo $params.docker_container_humann4 | cut -d: -f 2 > v_humann.txt
   echo $params.docker_container_metaphlan | cut -d: -f 2 > v_metaphlan.txt
   echo $params.docker_container_multiqc | cut -d: -f 2 > v_multiqc.txt
 
@@ -39,23 +39,24 @@ process get_software_versions {
 
 process count_reads {
   tag "$name"
-  
+  conda "bioconda::fastp=1.2.0"
   container params.docker_container_fastp
-  
+
   publishDir {"${params.outdir}/${params.project}/${run}/readcount"}, mode: 'copy', pattern: "*_readcount.txt"
 
   input:
   tuple val(meta), path(reads)
 
   output:
-  tuple val(meta), path(reads), path("${name}_readcount.txt"), emit: read_info
+  tuple val(meta), path(reads), env('READ_COUNT'), emit: read_info
+  tuple val(meta), path("${name}_readcount.txt"), emit: read_count
 
   script:
   name = task.ext.name ?: "${meta.id}"
   run = task.ext.run ?: "${meta.run}"
   """
-  # Count sequences in first read file (divide line count by 4 since FASTQ has 4 lines per read)
-  zcat ${reads[0]} | echo \$((`wc -l`/4)) > ${name}_readcount.txt
+  READ_COUNT=\$(zcat ${reads[0]} | echo \$((`wc -l`/4)))
+  echo \$READ_COUNT > ${name}_readcount.txt
   """
 }
 
@@ -63,7 +64,9 @@ process count_reads {
 process clean_reads {
   tag "$name"
   label "fastp"
+  conda "bioconda::fastp=1.2.0"
   container params.docker_container_fastp
+  cpus 4
 
   input:
   tuple val(meta), path(reads)
@@ -119,7 +122,7 @@ process clean_reads {
 process MULTIQC {
   tag "$run"
   publishDir {"${params.outdir}/${params.project}/${run}/log"}, mode: 'copy'
-
+  conda "bioconda::multiqc=1.22"
   container params.docker_container_multiqc
 
   input:
@@ -127,14 +130,13 @@ process MULTIQC {
   tuple val(meta), path(data_files)
   path(multiqc_config)
   output:
-  path "multiqc_report.html"
-  path "multiqc_report_data"
+  path "nf-profile-reads-Report_multiqc_report.html"
+  path "nf-profile-reads-Report_multiqc_report_data/"
 
-  
   script:
   run = task.ext.run ?: "${meta.run}"
   """
-  multiqc --config $multiqc_config . -f -n multiqc_report.html
+  multiqc --config $multiqc_config . -f
   """
 }
 

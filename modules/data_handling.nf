@@ -27,8 +27,10 @@ process FASTERQ_DUMP {
     tag "$meta.id"
     label 'process_medium'
 
-    conda "bioconda::sra-tools=3.0.8"
+    conda "bioconda::sra-tools=3.2.1 conda-forge::pigz=2.8"
     container params.docker_container_sra
+    memory 4.GB
+    cpus 2
 
     input:
     tuple val(meta), path(sra_file)
@@ -39,7 +41,6 @@ process FASTERQ_DUMP {
 
     script:
     def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
     """
     # Run fasterq-dump
     fasterq-dump \\
@@ -49,7 +50,7 @@ process FASTERQ_DUMP {
         --mem ${task.memory.toGiga()}G \\
         $sra_file
 
-    # Compress all fastq files
+    # Compress all fastq files. No -p; use all open cpu cores!
     pigz *.fastq
 
     # Create directory for processed files

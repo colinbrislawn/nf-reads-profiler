@@ -96,7 +96,7 @@ The ECS agent is restarted after sync completes, ensuring it only accepts tasks 
 
 - **Instrumentation:** Pilot runs will measure sync duration and S3 request patterns at scale (target: 50+ concurrent workers). If sync exceeds 10 minutes, alternative strategies (e.g., per-region pre-staged cache or request rate optimization) should be reevaluated.
 
-- **Database versioning:** Source bucket (`cjb-gutz-s3-demo`, parameterized as `DbSourceBucket`) is maintained independently. Database version tags are managed externally (e.g., via S3 object tags or bucket structure). Pipeline `--humann_metaphlan_index` and `--direct_metaphlan_id` parameters specify which tool versions to invoke, not which S3 database version — database selection is implicit via bucket contents.
+- **Database versioning:** Source bucket (`cjb-gutz-s3-demo`, parameterized as `DbSourceBucket`) is maintained independently. Database version tags are managed externally (e.g., via S3 object tags or bucket structure). Pipeline `--humann_metaphlan_id` and `--direct_metaphlan_id` parameters specify which tool versions to invoke, not which S3 database version — database selection is implicit via bucket contents.
 
 - **MEDI databases deferred:** Kraken2/Bracken (~1.37 TB) excluded from this sync. Future ADR required to decide strategy: pre-staged on regional filesystem, lazy-loaded on first use, or on-demand download per worker.
 

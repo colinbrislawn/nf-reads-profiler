@@ -19,7 +19,7 @@ test_pe_4,$projectDir/assets/test_data/SRX4954910_SRR8133837_1.fastq.gz,$project
                 input = "$outputDir/samplesheet-local.csv"
                 project = "test_pe"
                 outdir = "$outputDir"
-                annotation = true
+                
             }
         }
 
@@ -32,34 +32,34 @@ test_pe_4,$projectDir/assets/test_data/SRX4954910_SRR8133837_1.fastq.gz,$project
                 { assert path("$outputDir/test_pe/STUDY2/function").exists() },
                 
                 // Check taxa outputs
-                { assert path("$outputDir/test_pe/STUDY1/taxa/test_pe_1_metaphlan_bugs_list.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY1/taxa/test_pe_2_metaphlan_bugs_list.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY1/taxa/STUDY1_bugs_list_combined.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY2/taxa/test_pe_3_metaphlan_bugs_list.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY2/taxa/test_pe_4_metaphlan_bugs_list.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY2/taxa/STUDY2_bugs_list_combined.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY1/taxa/test_pe_1_metaphlan.biom").exists() },
+                { assert path("$outputDir/test_pe/STUDY1/taxa/test_pe_2_metaphlan.biom").exists() },
+                { assert path("$outputDir/test_pe/STUDY1/combined_tables/STUDY1_metaphlan_combined.biom").exists() },
+                { assert path("$outputDir/test_pe/STUDY2/taxa/test_pe_3_metaphlan.biom").exists() },
+                { assert path("$outputDir/test_pe/STUDY2/taxa/test_pe_4_metaphlan.biom").exists() },
+                { assert path("$outputDir/test_pe/STUDY2/combined_tables/STUDY2_metaphlan_combined.biom").exists() },
 
                 // Check function outputs
-                { assert path("$outputDir/test_pe/STUDY1/function/test_pe_1_genefamilies.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY1/function/test_pe_1_pathcoverage.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY1/function/test_pe_1_pathabundance.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY1/function/test_pe_2_genefamilies.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY1/function/test_pe_2_pathcoverage.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY1/function/test_pe_2_pathabundance.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY2/function/test_pe_4_genefamilies.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY2/function/test_pe_4_pathcoverage.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY2/function/test_pe_4_pathabundance.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY2/function/test_pe_3_genefamilies.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY2/function/test_pe_3_pathcoverage.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY2/function/test_pe_3_pathabundance.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY1/function/test_pe_1_2_genefamilies.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY1/function/test_pe_1_3_reactions.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY1/function/test_pe_1_4_pathabundance.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY1/function/test_pe_2_2_genefamilies.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY1/function/test_pe_2_3_reactions.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY1/function/test_pe_2_4_pathabundance.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY2/function/test_pe_4_2_genefamilies.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY2/function/test_pe_4_3_reactions.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY2/function/test_pe_4_4_pathabundance.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY2/function/test_pe_3_2_genefamilies.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY2/function/test_pe_3_3_reactions.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY2/function/test_pe_3_4_pathabundance.tsv").exists() },
 
                 // Check combined function outputs
-                { assert path("$outputDir/test_pe/STUDY1/function/STUDY1_genefamilies_combined.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY1/function/STUDY1_pathcoverage_combined.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY1/function/STUDY1_pathabundance_combined.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY2/function/STUDY2_genefamilies_combined.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY2/function/STUDY2_pathcoverage_combined.tsv").exists() },
-                { assert path("$outputDir/test_pe/STUDY2/function/STUDY2_pathabundance_combined.tsv").exists() }
+                { assert path("$outputDir/test_pe/STUDY1/combined_tables/STUDY1_genefamilies_combined.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY1/combined_tables/STUDY1_reactions_combined.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY1/combined_tables/STUDY1_pathabundance_combined.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY2/combined_tables/STUDY2_genefamilies_combined.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY2/combined_tables/STUDY2_reactions_combined.tsv").exists() },
+                { assert path("$outputDir/test_pe/STUDY2/combined_tables/STUDY2_pathabundance_combined.tsv").exists() }
             )
         }
     }
@@ -71,7 +71,7 @@ test_pe_4,$projectDir/assets/test_data/SRX4954910_SRR8133837_1.fastq.gz,$project
                 input = "$projectDir/assets/samplesheet-test-local-filter.csv"
                 project = "test_filter"
                 outdir = "$outputDir"
-                annotation = true
+                
                 minreads = 5000  // Set threshold above the filtered sample's read count
             }
         }
@@ -80,17 +80,17 @@ test_pe_4,$projectDir/assets/test_data/SRX4954910_SRR8133837_1.fastq.gz,$project
             assertAll(
                 { assert workflow.success },
                 // Check that read counts are generated for all samples
-                { assert path("$outputDir/test_filter/STUDY1/test_pe_1_readcount.txt").exists() },
-                { assert path("$outputDir/test_filter/STUDY1/test_pe_2_readcount.txt").exists() },
-                { assert path("$outputDir/test_filter/STUDY1/test_pe_smol_1_readcount.txt").exists() },
-                
+                { assert path("$outputDir/test_filter/STUDY1/readcount/test_pe_1_readcount.txt").exists() },
+                { assert path("$outputDir/test_filter/STUDY1/readcount/test_pe_2_readcount.txt").exists() },
+                { assert path("$outputDir/test_filter/STUDY1/readcount/test_pe_smol_1_readcount.txt").exists() },
+
                 // Verify read counts
-                { assert path("$outputDir/test_filter/STUDY1/test_pe_smol_1_readcount.txt").text.trim().toInteger() < 5000 },
-                
+                { assert path("$outputDir/test_filter/STUDY1/readcount/test_pe_smol_1_readcount.txt").text.trim().toInteger() < 5000 },
+
                 // Check that only passing samples are processed
-                { assert path("$outputDir/test_filter/STUDY1/taxa/test_pe_1_metaphlan_bugs_list.tsv").exists() },
-                { assert path("$outputDir/test_filter/STUDY1/taxa/test_pe_2_metaphlan_bugs_list.tsv").exists() },
-                { assert !path("$outputDir/test_filter/STUDY1/taxa/test_pe_smol_1_metaphlan_bugs_list.tsv").exists() }
+                { assert path("$outputDir/test_filter/STUDY1/taxa/test_pe_1_metaphlan.biom").exists() },
+                { assert path("$outputDir/test_filter/STUDY1/taxa/test_pe_2_metaphlan.biom").exists() },
+                { assert !path("$outputDir/test_filter/STUDY1/taxa/test_pe_smol_1_metaphlan.biom").exists() }
             )
         }
     }
@@ -110,7 +110,6 @@ test_sra_2,,,SRR6664342,STUDY_SRA"""
                 input = "$outputDir/samplesheet-sra.csv"
                 project = "test_sra"
                 outdir = "$outputDir"
-                annotation = true
             }
         }
 
@@ -121,22 +120,22 @@ test_sra_2,,,SRR6664342,STUDY_SRA"""
                 { assert path("$outputDir/test_sra/STUDY_SRA/function").exists() },
                 
                 // Check taxa outputs
-                { assert path("$outputDir/test_sra/STUDY_SRA/taxa/test_sra_1_metaphlan_bugs_list.tsv").exists() },
-                { assert path("$outputDir/test_sra/STUDY_SRA/taxa/test_sra_2_metaphlan_bugs_list.tsv").exists() },
-                { assert path("$outputDir/test_sra/STUDY_SRA/taxa/STUDY_SRA_bugs_list_combined.tsv").exists() },
+                { assert path("$outputDir/test_sra/STUDY_SRA/taxa/test_sra_1_metaphlan.biom").exists() },
+                { assert path("$outputDir/test_sra/STUDY_SRA/taxa/test_sra_2_metaphlan.biom").exists() },
+                { assert path("$outputDir/test_sra/STUDY_SRA/combined_tables/STUDY_SRA_metaphlan_combined.biom").exists() },
 
                 // Check function outputs
-                { assert path("$outputDir/test_sra/STUDY_SRA/function/test_sra_1_genefamilies.tsv").exists() },
-                { assert path("$outputDir/test_sra/STUDY_SRA/function/test_sra_1_pathcoverage.tsv").exists() },
-                { assert path("$outputDir/test_sra/STUDY_SRA/function/test_sra_1_pathabundance.tsv").exists() },
-                { assert path("$outputDir/test_sra/STUDY_SRA/function/test_sra_2_genefamilies.tsv").exists() },
-                { assert path("$outputDir/test_sra/STUDY_SRA/function/test_sra_2_pathcoverage.tsv").exists() },
-                { assert path("$outputDir/test_sra/STUDY_SRA/function/test_sra_2_pathabundance.tsv").exists() },
+                { assert path("$outputDir/test_sra/STUDY_SRA/function/test_sra_1_2_genefamilies.tsv").exists() },
+                { assert path("$outputDir/test_sra/STUDY_SRA/function/test_sra_1_3_reactions.tsv").exists() },
+                { assert path("$outputDir/test_sra/STUDY_SRA/function/test_sra_1_4_pathabundance.tsv").exists() },
+                { assert path("$outputDir/test_sra/STUDY_SRA/function/test_sra_2_2_genefamilies.tsv").exists() },
+                { assert path("$outputDir/test_sra/STUDY_SRA/function/test_sra_2_3_reactions.tsv").exists() },
+                { assert path("$outputDir/test_sra/STUDY_SRA/function/test_sra_2_4_pathabundance.tsv").exists() },
 
                 // Check combined function outputs
-                { assert path("$outputDir/test_sra/STUDY_SRA/function/STUDY_SRA_genefamilies_combined.tsv").exists() },
-                { assert path("$outputDir/test_sra/STUDY_SRA/function/STUDY_SRA_pathcoverage_combined.tsv").exists() },
-                { assert path("$outputDir/test_sra/STUDY_SRA/function/STUDY_SRA_pathabundance_combined.tsv").exists() }
+                { assert path("$outputDir/test_sra/STUDY_SRA/combined_tables/STUDY_SRA_genefamilies_combined.tsv").exists() },
+                { assert path("$outputDir/test_sra/STUDY_SRA/combined_tables/STUDY_SRA_reactions_combined.tsv").exists() },
+                { assert path("$outputDir/test_sra/STUDY_SRA/combined_tables/STUDY_SRA_pathabundance_combined.tsv").exists() }
             )
         }
     }
@@ -156,7 +155,6 @@ test_sra,,,SRR6664374,STUDY_MIXED"""
                 input = "$outputDir/samplesheet-mixed.csv"
                 project = "test_mixed"
                 outdir = "$outputDir"
-                annotation = true
             }
         }
 
@@ -167,9 +165,9 @@ test_sra,,,SRR6664374,STUDY_MIXED"""
                 { assert path("$outputDir/test_mixed/STUDY_MIXED/function").exists() },
                 
                 // Check both local and downloaded files are processed
-                { assert path("$outputDir/test_mixed/STUDY_MIXED/taxa/test_local_metaphlan_bugs_list.tsv").exists() },
-                { assert path("$outputDir/test_mixed/STUDY_MIXED/taxa/test_sra_metaphlan_bugs_list.tsv").exists() },
-                { assert path("$outputDir/test_mixed/STUDY_MIXED/function/STUDY_MIXED_genefamilies_combined.tsv").exists() }
+                { assert path("$outputDir/test_mixed/STUDY_MIXED/taxa/test_local_metaphlan.biom").exists() },
+                { assert path("$outputDir/test_mixed/STUDY_MIXED/taxa/test_sra_metaphlan.biom").exists() },
+                { assert path("$outputDir/test_mixed/STUDY_MIXED/combined_tables/STUDY_MIXED_genefamilies_combined.tsv").exists() }
             )
         }
     }
@@ -192,7 +190,6 @@ test_sra_single,,,ERR4775947,STUDY_MIXED
                 input = "$outputDir/samplesheet-mixed-12.csv"
                 project = "test_mixed"
                 outdir = "$outputDir"
-                annotation = true
             }
         }
 
@@ -203,9 +200,9 @@ test_sra_single,,,ERR4775947,STUDY_MIXED
                 { assert path("$outputDir/test_mixed/STUDY_MIXED/function").exists() },
                 
                 // Check both local and downloaded files are processed
-                { assert path("$outputDir/test_mixed/STUDY_MIXED/taxa/test_local_metaphlan_bugs_list.tsv").exists() },
-                { assert path("$outputDir/test_mixed/STUDY_MIXED/taxa/test_sra_metaphlan_bugs_list.tsv").exists() },
-                { assert path("$outputDir/test_mixed/STUDY_MIXED/function/STUDY_MIXED_genefamilies_combined.tsv").exists() }
+                { assert path("$outputDir/test_mixed/STUDY_MIXED/taxa/test_local_metaphlan.biom").exists() },
+                { assert path("$outputDir/test_mixed/STUDY_MIXED/taxa/test_sra_metaphlan.biom").exists() },
+                { assert path("$outputDir/test_mixed/STUDY_MIXED/combined_tables/STUDY_MIXED_genefamilies_combined.tsv").exists() }
             )
         }
     }
@@ -225,7 +222,6 @@ test_sra_single,,,ERR4775947,STUDY_MIXED
                 input = "$outputDir/samplesheet-sra-three.csv"
                 project = "test_sra_three"
                 outdir = "$outputDir"
-                annotation = true
             }
         }
 
@@ -236,7 +232,7 @@ test_sra_single,,,ERR4775947,STUDY_MIXED
                 
                 // Check that SRA download worked and produced expected files
                 { assert path("$outputDir/test_sra_three/STUDY1/taxa").exists() },
-                { assert path("$outputDir/test_sra_three/STUDY1/taxa/test_sra_triple_metaphlan_bugs_list.tsv").exists() },
+                { assert path("$outputDir/test_sra_three/STUDY1/taxa/test_sra_triple_metaphlan.biom").exists() },
                 
                 // Find the FASTERQ_DUMP work directory and verify its outputs
                 { 

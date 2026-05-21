@@ -191,25 +191,25 @@ run_test "CT-05: jobRole name matches CFN BatchJobRole pattern" test_ct05_job_ro
 # Security Tests
 # ---------------------------------------------------------------------------
 
-# ST-01: humann_params not injectable from samplesheet
-#   humann_params must only appear as params.humann_params in
-#   main.nf and modules/ — never as meta.humann_params or constructed
+# ST-01: humann_extraparams not injectable from samplesheet
+#   humann_extraparams must only appear as params.humann_extraparams in
+#   main.nf and modules/ — never as meta.humann_extraparams or constructed
 #   from samplesheet fields.
-test_st01_humann_params_not_injectable() {
+test_st01_humann_extraparams_not_injectable() {
     local main_nf="$REPO_ROOT/main.nf"
     local modules_dir="$REPO_ROOT/modules"
 
-    # Fail if any reference to meta.humann_params exists
-    if grep -rq 'meta\.humann_params' "$main_nf" "$modules_dir"; then
-        echo "  meta.humann_params found — samplesheet injection possible"
+    # Fail if any reference to meta.humann_extraparams exists
+    if grep -rq 'meta\.humann_extraparams' "$main_nf" "$modules_dir"; then
+        echo "  meta.humann_extraparams found — samplesheet injection possible"
         return 1
     fi
 
-    # Confirm all occurrences are params.humann_params (safe path)
-    # Pass when at least one params.humann_params reference exists AND
+    # Confirm all occurrences are params.humann_extraparams (safe path)
+    # Pass when at least one params.humann_extraparams reference exists AND
     # no unsafe references exist (checked above)
-    grep -rq 'params\.humann_params' "$main_nf" "$modules_dir" || {
-        echo "  no params.humann_params reference found in main.nf or modules/"
+    grep -rq 'params\.humann_extraparams' "$main_nf" "$modules_dir" || {
+        echo "  no params.humann_extraparams reference found in main.nf or modules/"
         return 1
     }
 }
@@ -238,7 +238,7 @@ test_st03_sample_name_pattern() {
     }
 }
 
-run_test "ST-01: humann_params only via params (not meta/samplesheet)" test_st01_humann_params_not_injectable
+run_test "ST-01: humann_extraparams only via params (not meta/samplesheet)" test_st01_humann_extraparams_not_injectable
 run_test "ST-02: sra_accession has ^[ESD]RR[0-9]+\$ pattern in schema"     test_st02_sra_accession_pattern
 run_test "ST-03: sample field has ^\\S+\$ pattern in schema"                test_st03_sample_name_pattern
 

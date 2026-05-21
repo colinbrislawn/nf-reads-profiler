@@ -12,27 +12,42 @@ microbiome quantification.
 
 ## Running the pipeline
 
+**Always use screen for any run that takes more than a few minutes.** Closing the
+terminal (or the Claude Code client) kills the Nextflow process — screen keeps it
+alive across SSH disconnects and client exits.
+
 ```bash
-# Local — basic (Docker, small test data)
+# ── Screen basics ──────────────────────────────────────────────────────────
+screen -S nf-run          # start a named session
+# Detach: Ctrl+A D   |   Reattach: screen -r nf-run   |   List: screen -ls
+
+# ── Local — basic (Docker, small test data) ────────────────────────────────
 nextflow run main.nf -profile test
 
-# Local — with MEDI shortcut (I13); use a screen session so SSH drops don't kill it
+# ── Local — with MEDI (I13); screen keeps it alive ─────────────────────────
 screen -S nf-test
 nextflow run main.nf -profile test_medi -resume
-# Detach: Ctrl+A D  |  Reattach: screen -r nf-test
-
-# Monitor from another terminal
+# Monitor from another terminal:
 tail -f .nextflow.log
-# or the tee'd log if launched via screen as above:
-tail -f /tmp/nf-test-medi.log
 
-# AWS Batch — primary production path
+# ── AWS Batch — primary production path ────────────────────────────────────
+# 1. Enable FSR so spot workers boot fast (bills $2.25/hr; run once before pipeline)
+FSR_CONFIRM=yes infra/packer/enable-fsr.sh
+# Polls until all 3 us-east-2 AZs reach 'enabled' (~15–30 min for a 150 GB snapshot)
+
+# 2. Launch inside screen so SSH disconnect / Claude Code exit won't kill it:
+screen -S nf-aws
 nextflow run main.nf -profile aws \
   --input s3://gutz-nf-reads-profilers-runs/samplesheets/<name>.csv \
   --project <project_name> -resume
+# Detach: Ctrl+A D  |  Reattach: screen -r nf-aws
 
-# Enable MEDI (food-microbiome quant) on either profile
-nextflow run main.nf -profile <p> ... --enable_medi
+# 3. From another terminal, tail Nextflow's own log:
+tail -f .nextflow.log
+
+# 4. After all runs are done for the day, stop FSR billing:
+infra/packer/disable-fsr.sh
+# Kill-switch: disables ALL FSR-enabled snapshots in us-east-2 (catches stale AMI rollovers too)
 ```
 
 Profile-to-config mapping is in `nextflow.config`:

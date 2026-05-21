@@ -33,7 +33,17 @@
       "Bash(aws ec2 describe-launch-templates *)",
       "Bash(aws batch describe-job-definitions *)",
       "Bash(aws batch describe-jobs *)",
-      "Bash(screen -ls)"
+      "Bash(screen -ls *)",
+      "Bash(nextflow lint *)",
+      "Bash(nextflow config *)",
+      "Bash(lsblk)",
+      "Bash(aws sts get-caller-identity *)",
+      "Bash(aws ecs list-clusters *)",
+      "Bash(aws ecs list-container-instances *)",
+      "Bash(aws ecs describe-container-instances *)",
+      "Bash(aws cloudwatch get-metric-statistics *)",
+      "Bash(aws ssm get-parameter *)",
+      "Bash(aws ec2 describe-fast-snapshot-restores *)"
     ]
   }
 }

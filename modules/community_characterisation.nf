@@ -29,9 +29,6 @@ process profile_taxa {
   // tuple val(meta), path("*_profile_taxa_mqc.yaml"), emit: profile_taxa_log
 
 
-  when:
-  !params.rna
-
   script:
   name = task.ext.name ?: "${meta.id}"
   run = task.ext.run ?: "${meta.run}"
@@ -43,7 +40,7 @@ process profile_taxa {
     --tmp_dir . \\
     --index ${params.direct_metaphlan_id} \\
     --db_dir ${params.direct_metaphlan_db} \\
-    --bt2_ps ${params.bt2options} \\
+    --bt2_ps ${params.direct_bt2options} \\
     --sample_id ${name} \\
     --biom_format_output \\
     --nproc ${task.cpus * 2} \\
@@ -88,7 +85,9 @@ process profile_function {
   tuple val(meta), path("*_3_reactions.tsv"), emit: profile_function_reactions
   tuple val(meta), path("*_4_pathabundance.tsv"), emit: profile_function_pa
   tuple val(meta), path("*_profile_functions_mqc.yaml"), emit: profile_function_log
-  tuple val(meta), path("${name}_humann_temp/${name}_diamond_unaligned.fa"), emit: unmapped_reads, optional: true
+  // For before diamond use ${name}_bowtie2_unaligned.fa
+  // For after diamond use ${name}_diamond_unaligned.fa
+  tuple val(meta), path("${name}_humann_temp/${name}_bowtie2_unaligned.fa"), emit: unmapped_reads, optional: true
 
   when:
   !params.skipHumann
@@ -101,13 +100,13 @@ process profile_function {
   humann \\
     --input $reads \\
     --output . \\
-    ${params.humann_params} \\
+    ${params.humann_extraparams} \\
     --output-basename ${name} \\
     --nucleotide-database ${params.humann_chocophlan} \\
     --remove-column-description-output \\
     --protein-database ${params.humann_uniref} \\
     --utility-database ${params.humann_utilitymap} \\
-    --metaphlan-options "-t rel_ab_w_read_stats --index ${params.humann_metaphlan_index} --bowtie2db ${params.humann_metaphlan_db} --bt2_ps ${params.bt2options}" \\
+    --metaphlan-options "-t rel_ab_w_read_stats --index ${params.humann_metaphlan_id} --bowtie2db ${params.humann_metaphlan_db} --bt2_ps ${params.humann_bt2options}" \\
     --pathways metacyc \\
     --threads ${task.cpus * 2} \\
     --memory-use minimum \\
@@ -267,11 +266,47 @@ process convert_tables_to_biom {
   output_name = (stratification && stratification != 'combined' && stratification != 'null') ? "${run}_${type}_${stratification}.biom" : "${run}_${type}.biom"
   """
   echo "Converting ${type} table to biom format (${stratification})"
-  biom convert \\
-    --input-fp ${table} \\
-    --output-fp ${output_name} \\
-    --table-type '${table_type}' \\
-    --to-hdf5
+
+  has_data=\$(python3 -c "
+import sys
+def pos(v):
+    try: return float(v) > 0
+    except: return False
+with open('${table}') as f:
+    for line in f:
+        if line.startswith('#') or not line.strip():
+            continue
+        parts = line.strip().split('\\t')
+        if parts[0] in ('UNMAPPED', 'UNINTEGRATED'):
+            continue
+        if any(pos(v) for v in parts[1:] if v):
+            print('yes'); sys.exit(0)
+print('no')
+")
+
+  if [ "\$has_data" = "yes" ]; then
+    biom convert \\
+      --input-fp ${table} \\
+      --output-fp ${output_name} \\
+      --table-type '${table_type}' \\
+      --to-hdf5
+  else
+    echo "Table is empty or all-zero — writing empty biom placeholder"
+    python3 -c "
+import h5py, numpy as np
+with h5py.File('${output_name}', 'w') as f:
+    f.attrs['id'] = 'None'
+    f.attrs['type'] = '${table_type}'
+    f.attrs['format'] = 'Biological Observation Matrix 1.0.0'
+    f.attrs['format_url'] = 'http://biom-format.org'
+    f.attrs['generated_by'] = 'nf-reads-profiler'
+    f.attrs['creation_date'] = ''
+    f.attrs['shape'] = np.array([0, 0], dtype=np.int32)
+    f.attrs['nnz'] = np.int32(0)
+    f.create_group('observation').create_dataset('ids', data=np.array([], dtype='S'))
+    f.create_group('sample').create_dataset('ids', data=np.array([], dtype='S'))
+"
+  fi
   """
 }
 
@@ -322,7 +357,7 @@ process regroup_genefamilies {
   tuple val(meta), path("*.biom"), emit: regrouped_bioms
 
   when:
-  !params.skipHumann && params.process_humann_tables && meta.type == 'genefamilies'
+  !params.skipHumann && params.humann_regroup && meta.type == 'genefamilies'
 
   script:
   run = task.ext.run ?: "${meta.run}"
@@ -341,7 +376,7 @@ process regroup_genefamilies {
     safe_cluster_process.py \\
       ${genefamilies_biom} \\
       "humann_regroup_table -i {input} -g \$group -o output_\${group}.biom" \\
-      --max-samples ${params.split_size ?: 100} \\
+      --max-samples ${params.humann_split_size ?: 100} \\
       --num-threads ${task.cpus} \\
       --final-output-dir . \\
       --command-output-location . \\

@@ -57,10 +57,10 @@ aws cloudformation deploy \
     WorkDirBucketName=gutz-nf-reads-profilers-workdir \
     RunsBucketName=gutz-nf-reads-profilers-runs \
     BudgetAlertEmail=colin@vasogo.com \
-    MonthlyBudgetThreshold=100 \
-    SpotBidPercentage=70 \
-    MaxvCPUsSpot=16 \
-    MaxvCPUsOnDemand=8 \
+    MonthlyBudgetThreshold=200 \
+    SpotBidPercentage=50 \
+    MaxvCPUsSpot=256 \
+    MaxvCPUsOnDemand=0 \
     ProjectTag=nf-reads-profiler \
     EnvironmentTag=development \
     DbSourceBucket=cjb-gutz-s3-demo \

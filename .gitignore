@@ -7,3 +7,10 @@ test/
 ramdisk_test/keys.sh
 ramdisk_test/
 results_*
+# Results, including results_cjb
+# test-out/ already in results_* but explicit for clarity
+test-out/
+# Local only for now
+logs/
+monkey-hand/
+pull_requests/

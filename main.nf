@@ -35,7 +35,8 @@ nf-reads-profiler - Version: ${workflow.manifest.version}
   Other options:
   MetaPhlAn parameters for taxa profiling:
     --direct_metaphlan_db path   folder for the MetaPhlAn database
-    --bt2options          value   BowTie2 options
+    --direct_bt2options   value   BowTie2 options (direct MetaPhlAn)
+    --humann_bt2options   value   BowTie2 options (HUMAnN internal MetaPhlAn)
 
   HUMANn parameters for functional profiling:
     --taxonomic_profile   path    s3path to precalculate metaphlan3 taxonomic profile output.
@@ -77,10 +78,13 @@ ${summary.collect { k,v -> "            <dt>$k</dt><dd>$v</dd>" }.join("\n")}
 def output_exists(meta) {
   def run = meta.run
   def name = meta.id
-  def pathcoverage_file  = file("${params.outdir}/${params.project}/${run}/function/${name}_pathcoverage.tsv")
-  def genefamilies_file  = file("${params.outdir}/${params.project}/${run}/function/${name}_genefamilies.tsv")
-  def pathabundance_file = file("${params.outdir}/${params.project}/${run}/function/${name}_pathabundance.tsv")
-  return pathcoverage_file.exists() && genefamilies_file.exists() && pathabundance_file.exists()
+  def genefamilies_file  = file("${params.outdir}/${params.project}/${run}/function/${name}_2_genefamilies.tsv")
+  def reactions_file     = file("${params.outdir}/${params.project}/${run}/function/${name}_3_reactions.tsv")
+  def pathabundance_file = file("${params.outdir}/${params.project}/${run}/function/${name}_4_pathabundance.tsv")
+  def humann_done = genefamilies_file.exists() && reactions_file.exists() && pathabundance_file.exists()
+  if (!params.enable_medi) { return humann_done }
+  def medi_file = file("${params.outdir}/${params.project}/${run}/medi/kraken2/${name}_filtered.k2")
+  return humann_done && medi_file.exists()
 }
 
 
@@ -94,16 +98,21 @@ workflow {
     """.stripIndent()
 
   // Parse input samplesheet using nf-validation plugin
-  Channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
-      .branch {
-          local: it[1]                                    // Has fastq_1 defined
-          sra: !it[1] && it[3] =~ /^[ESD]RR[0-9]+$/     // No local files but has SRA accession
+  channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
+      .branch { row ->
+          skip:  params.skipCompleted.toBoolean() && output_exists(row[0])
+          local: row[1]                                    // Has fastq_1 defined
+          sra:   !row[1] && row[3] =~ /^[ESD]RR[0-9]+$/  // No local files but has SRA accession
       }
       .set { input_ch }
 
+  // Log samples skipped because outputs already exist
+  input_ch.skip
+      .map { row -> log.info "Skipping completed sample ${row[0].id} (outputs already exist in ${params.outdir})" }
+
   // Process local files
   input_ch.local
-      .map { meta, fastq_1, fastq_2, sra_id -> 
+      .map { meta, fastq_1, fastq_2, _sra_id ->
           meta.single_end = !fastq_2  // true if fastq_2 is empty/null
           fastq_2 ? [ meta, [ fastq_1, fastq_2 ] ] : [ meta, [ fastq_1 ] ]
       }
@@ -111,17 +120,16 @@ workflow {
 
   // Process SRA files - only for samples without local files
   input_ch.sra
-      .map { meta, fastq_1, fastq_2, sra_id ->
+      .map { meta, _fastq_1, _fastq_2, sra_id ->
           [ meta, sra_id ]
       }
       .set { sra_ids }
 
   AWS_DOWNLOAD(sra_ids)
 
-  def sortReads = { reads -> 
-      reads.sort() 
-  }
-
+  // def sortReads = { reads ->
+  //     reads.sort()
+  // }
   // FASTERQ_DUMP(AWS_DOWNLOAD.out.sra_file)
   //     .reads
   //     .map { meta, reads -> 
@@ -150,16 +158,15 @@ workflow {
     
     // Split into passing and failing samples based on read count
     count_reads.out.read_info
-        .map { meta, reads, count_file -> [meta, reads, count_file.text.trim().toInteger()] }
-        .branch {
-            pass: { _meta, _reads, count -> count >= params.minreads }
+        .branch { row ->
+            pass: row[2].toInteger() >= params.minreads
             fail: true
         }
         .set { read_check }
 
     // Log filtered samples
     read_check.fail
-        .map { meta, reads, count ->
+        .map { meta, _reads, count ->
             log.info "Skipping sample ${meta.id} due to insufficient reads: ${count} < ${params.minreads}"
         }
 
@@ -172,14 +179,9 @@ workflow {
   profile_taxa(merged_reads)
 
 
-  // Skip samples whose HUMAnN outputs already exist (production resume optimisation)
-  ch_filtered_reads = params.skipCompleted
-    ? merged_reads.filter { meta, _reads -> !output_exists(meta) }
-    : merged_reads
-
   // Functional profiling (HUMAnN4) if not skipped
   if ( ! params.skipHumann ) {
-    profile_function(ch_filtered_reads)
+    profile_function(merged_reads)
 
     ch_genefamilies = profile_function.out.profile_function_gf
                 .map { meta, table ->
@@ -241,7 +243,7 @@ workflow {
               [ meta_new, table ]
             }
             .groupTuple()
-            
+
   combine_metaphlan_tables(ch_metaphlan)
 
   // MEDI quantification workflow — I13 shortcut: diamond_unaligned → Kraken2 directly.
@@ -254,14 +256,18 @@ workflow {
       error "enable_medi requires skipHumann=false — MEDI uses HUMAnN diamond_unaligned reads"
     }
 
-    // Group HUMAnN unaligned reads by study for MEDI
+    // Stream each sample into MEDI as it finishes HUMAnN — no waiting for study-mates.
+    // MEDI_QUANT re-groups internally (by study+level) for merge steps.
+    // To batch all samples before Kraken2 starts (useful on local SSD to guarantee the
+    // 415 GB DB is page-cached before the first job), restore the groupTuple block:
+    //   .map { meta, reads -> [meta.run, meta, reads] }
+    //   .groupTuple(by: [0])
+    //   .map { study, metas, reads_files ->
+    //     def samples = [metas, reads_files].transpose().collect { m, r -> [m, r] }
+    //     [study, samples]
+    //   }
     profile_function.out.unmapped_reads
-      .map { meta, reads -> [meta.run, meta, reads] }
-      .groupTuple(by: [0])
-      .map { study, metas, reads_files ->
-        def samples = [metas, reads_files].transpose().collect { m, r -> [m, r] }
-        [study, samples]
-      }
+      .map { meta, reads -> [meta.run, [[meta, reads]]] }
       .set { studies_with_samples }
 
     MEDI_QUANT(
@@ -292,7 +298,7 @@ workflow {
     convert_tables_to_biom(ch_tables_for_biom)
     
     // Process HUMAnN tables if enabled
-    if (params.process_humann_tables) {
+    if (params.humann_regroup) {
       // Use only the genefamilies combined tables for processing
       ch_combined_genefamilies = convert_tables_to_biom.out.filter { meta, _table ->
         meta.type == 'genefamilies'
@@ -304,10 +310,10 @@ workflow {
 
   // MultiQC setup
   ch_multiqc_files = channel.empty()
-  ch_multiqc_files = ch_multiqc_files.concat(clean_reads.out.fastp_log.ifEmpty([]))
-  // ch_multiqc_files = ch_multiqc_files.concat(profile_taxa.out.profile_taxa_log.ifEmpty([]))
+  ch_multiqc_files = ch_multiqc_files.concat(clean_reads.out.fastp_log)
+  // ch_multiqc_files = ch_multiqc_files.concat(profile_taxa.out.profile_taxa_log)
   if ( ! params.skipHumann ) {
-    ch_multiqc_files = ch_multiqc_files.concat(profile_function.out.profile_function_log.ifEmpty([]))
+    ch_multiqc_files = ch_multiqc_files.concat(profile_function.out.profile_function_log)
   }
   
 
