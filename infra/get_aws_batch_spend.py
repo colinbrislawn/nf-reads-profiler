@@ -119,10 +119,11 @@ def print_bucket_table():
 
 def main():
     today = datetime.now(timezone.utc).date()
-    # Cost Explorer data lags ~24 h; exclude today to avoid incomplete rows.
-    end = today - timedelta(days=1)
+    # CE end date is exclusive. Data for a completed day is typically available
+    # 8–14 h after midnight UTC, so yesterday's numbers are usually ready by morning.
+    end = today  # exclusive → includes yesterday
     start = end - timedelta(days=LOOKBACK_DAYS)
-    print(f"Cost Explorer data lags ~24 h. Showing {start} to {end} (complete days only).")
+    print(f"Cost Explorer data typically lags 8–14 h after midnight UTC. Showing {start} to {end - timedelta(days=1)} (complete days only).")
     print()
 
     compute_by_date, compute_cols = query_daily("Amazon Elastic Compute Cloud - Compute", start.isoformat(), end.isoformat())

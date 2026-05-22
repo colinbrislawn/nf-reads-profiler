@@ -211,6 +211,36 @@ Resources:
         - Key: Environment
           Value: !Ref EnvironmentTag
 
+  EcrFastp:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: fastp
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  EcrMultiqc:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: multiqc
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
 # ---------------------------------------------------------------------------
 # IAM
 # ---------------------------------------------------------------------------
