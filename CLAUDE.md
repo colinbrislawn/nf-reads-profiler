@@ -38,17 +38,25 @@ tail -f .nextflow.log
 FSR_CONFIRM=yes infra/packer/enable-fsr.sh
 # Polls until all 3 us-east-2 AZs reach 'enabled' (~15–30 min for a 150 GB snapshot)
 
-# 2. Launch inside screen so SSH disconnect / Claude Code exit won't kill it:
+# 2. Lock the MEDI Kraken2 hash into RAM (cold ~30 min; warm <1 min/sample).
+# MEDI kraken runs in Docker on this head node — vmtouch on the host warms the
+# shared OS page cache so the container sees it instantly.
+# -d daemonizes so it holds the lock in the background while Nextflow runs.
+vmtouch -dl /mnt/scratch/ssddbs/medi_db/hash.k2d
+
+# 3. Launch inside screen so SSH disconnect / Claude Code exit won't kill it:
 screen -S nf-aws
 nextflow run main.nf -profile aws \
   --input s3://gutz-nf-reads-profilers-runs/samplesheets/<name>.csv \
   --project <project_name> -resume
 # Detach: Ctrl+A D  |  Reattach: screen -r nf-aws
 
-# 3. From another terminal, tail Nextflow's own log:
+# 4. From another terminal, tail Nextflow's own log:
 tail -f .nextflow.log
+grep "status: COMPLETED" .nextflow.log | grep -oP "name: \K\S+" | sort | uniq -c
 
-# 4. After all runs are done for the day, stop FSR billing:
+# 5. After all runs are done for the day, release the lock and stop FSR billing:
+pkill vmtouch
 infra/packer/disable-fsr.sh
 # Kill-switch: disables ALL FSR-enabled snapshots in us-east-2 (catches stale AMI rollovers too)
 ```

@@ -21,16 +21,24 @@ kill a foreground Nextflow process.**
 FSR_CONFIRM=yes infra/packer/enable-fsr.sh
 # Takes 15–30 min to reach 'enabled'; script polls and exits when ready.
 
-# 2. Start a named screen session and run the pipeline
+# 2. Lock the MEDI Kraken2 hash into RAM — MEDI kraken runs in Docker on this
+# head node; vmtouch warms the shared OS page cache so the container sees it instantly.
+# -d daemonizes so it holds the lock while Nextflow runs.
+vmtouch -dl /mnt/scratch/ssddbs/medi_db/hash.k2d
+
+# 3. Start a named screen session and run the pipeline
 screen -S nf-aws
 nextflow run main.nf -profile aws \
   --input s3://gutz-nf-reads-profilers-runs/samplesheets/<name>.csv \
   --project <project_name> -resume
 
-# 3. From another terminal: follow Nextflow's own log
+# 4. From another terminal: follow Nextflow's own log
 tail -f .nextflow.log
+grep "status: COMPLETED" .nextflow.log | grep -oP "name: \K\S+" | sort | uniq -c
 
-# 4. After the pipeline finishes: stop FSR billing
+
+# 5. After the pipeline finishes: release the lock and stop FSR billing
+pkill vmtouch
 infra/packer/disable-fsr.sh
 ```
 
