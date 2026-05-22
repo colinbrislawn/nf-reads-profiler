@@ -132,9 +132,6 @@ Resources:
 # ---------------------------------------------------------------------------
 # ECR
 # ---------------------------------------------------------------------------
-# Private registries for pipeline container images.
-# DeletionPolicy: Retain keeps images safe if the stack is torn down.
-# ScanOnPush: true enables free basic vulnerability scanning on every push.
 
   EcrMetaphlan:
     Type: AWS::ECR::Repository
@@ -143,8 +140,6 @@ Resources:
     UpdateReplacePolicy: Retain
     Properties:
       RepositoryName: metaphlan
-      ImageScanningConfiguration:
-        ScanOnPush: true
       Tags:
         - Key: Project
           Value: !Ref ProjectTag
@@ -158,8 +153,6 @@ Resources:
     UpdateReplacePolicy: Retain
     Properties:
       RepositoryName: aws-cli-bash
-      ImageScanningConfiguration:
-        ScanOnPush: true
       Tags:
         - Key: Project
           Value: !Ref ProjectTag
@@ -173,8 +166,6 @@ Resources:
     UpdateReplacePolicy: Retain
     Properties:
       RepositoryName: sra-tools-bash
-      ImageScanningConfiguration:
-        ScanOnPush: true
       Tags:
         - Key: Project
           Value: !Ref ProjectTag
@@ -188,8 +179,6 @@ Resources:
     UpdateReplacePolicy: Retain
     Properties:
       RepositoryName: medi
-      ImageScanningConfiguration:
-        ScanOnPush: true
       Tags:
         - Key: Project
           Value: !Ref ProjectTag
@@ -203,8 +192,6 @@ Resources:
     UpdateReplacePolicy: Retain
     Properties:
       RepositoryName: humann
-      ImageScanningConfiguration:
-        ScanOnPush: true
       Tags:
         - Key: Project
           Value: !Ref ProjectTag
@@ -218,8 +205,6 @@ Resources:
     UpdateReplacePolicy: Retain
     Properties:
       RepositoryName: fastp
-      ImageScanningConfiguration:
-        ScanOnPush: true
       Tags:
         - Key: Project
           Value: !Ref ProjectTag
@@ -233,8 +218,6 @@ Resources:
     UpdateReplacePolicy: Retain
     Properties:
       RepositoryName: multiqc
-      ImageScanningConfiguration:
-        ScanOnPush: true
       Tags:
         - Key: Project
           Value: !Ref ProjectTag
@@ -472,6 +455,7 @@ Resources:
               - ecr:GetAuthorizationToken
               - ecr:CreateRepository
               - ecr:DescribeRepositories
+              - ecr:GetRepositoryPolicy
               - ecr:BatchCheckLayerAvailability
               - ecr:InitiateLayerUpload
               - ecr:UploadLayerPart
