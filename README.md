@@ -51,6 +51,9 @@ nextflow run main.nf -profile test
 
 # With MEDI food-microbiome quant (requires local SSD DBs at /mnt/scratch/ssddbs/)
 screen -S nf-test
+# Lock the Kraken2 hash into RAM before the first job (cold ~30 min; warm <1 min/sample).
+# -d daemonizes so it holds the lock in the background while Nextflow runs.
+vmtouch -dl /mnt/scratch/ssddbs/medi_db/hash.k2d
 nextflow run main.nf -profile test_medi -resume
 ```
 
