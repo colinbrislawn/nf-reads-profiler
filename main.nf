@@ -75,21 +75,53 @@ ${summary.collect { k,v -> "            <dt>$k</dt><dd>$v</dd>" }.join("\n")}
 }
 
 
+// A sample may be skipped only if every per-sample file that a downstream combine
+// re-injects already exists — otherwise skipping it would truncate that reduce. This
+// must stay in lockstep with the re-injection channels in the workflow below.
 def output_exists(meta) {
   def run = meta.run
   def name = meta.id
-  def genefamilies_file  = file("${params.outdir}/${params.project}/${run}/function/${name}_2_genefamilies.tsv")
-  def reactions_file     = file("${params.outdir}/${params.project}/${run}/function/${name}_3_reactions.tsv")
-  def pathabundance_file = file("${params.outdir}/${params.project}/${run}/function/${name}_4_pathabundance.tsv")
-  def humann_done = genefamilies_file.exists() && reactions_file.exists() && pathabundance_file.exists()
-  if (!params.enable_medi) { return humann_done }
-  // The MEDI quantify reduce merges per-sample Bracken .b2 feature counts (one per
-  // level). These are the only per-sample MEDI files we publish, so they are the
-  // intermediates skip must verify before dropping a sample from the merge.
-  def medi_done = ['D', 'G', 'S'].every { lev ->
-    file("${params.outdir}/${params.project}/${run}/medi/bracken/${lev}/${lev}_${name}.b2").exists()
+  def base = "${params.outdir}/${params.project}/${run}"
+
+  // MetaPhlAn combine always runs — needs the per-sample biom.
+  if (!file("${base}/taxa/${name}_metaphlan.biom").exists()) { return false }
+
+  // HUMAnN combines (skipped when skipHumann) need all four per-sample tables,
+  // including the HUMAnN-internal MetaPhlAn profile that feeds the taxonomy combine.
+  if (!params.skipHumann) {
+    def humann_done = [
+      "${base}/function/${name}_1_metaphlan_profile.tsv",
+      "${base}/function/${name}_2_genefamilies.tsv",
+      "${base}/function/${name}_3_reactions.tsv",
+      "${base}/function/${name}_4_pathabundance.tsv",
+    ].every { file(it).exists() }
+    if (!humann_done) { return false }
   }
-  return humann_done && medi_done
+
+  // MEDI quantify reduce — needs the per-level Bracken .b2 feature counts.
+  if (params.enable_medi) {
+    def medi_done = ['D', 'G', 'S'].every { lev ->
+      file("${base}/medi/bracken/${lev}/${lev}_${name}.b2").exists()
+    }
+    if (!medi_done) { return false }
+  }
+
+  return true
+}
+
+
+// skipCompleted re-injection: emit each skipped sample's already-published per-sample
+// file so it can be mixed into the matching study-level combine. The group key is
+// {run[,type]} — the documented "per study+type" intent — so re-injected and freshly-run
+// samples land in the same group regardless of other meta fields (skipped samples carry
+// only the raw samplesheet meta, e.g. no single_end). output_exists() guarantees the
+// referenced files exist for any skipped sample.
+def skipReinject(skipCh, typeName, subdir, suffix) {
+  skipCh.map { row ->
+    def m = row[0]
+    def key = typeName ? [run: m.run, type: typeName] : [run: m.run]
+    [ key, file("${params.outdir}/${params.project}/${m.run}/${subdir}/${m.id}${suffix}") ]
+  }
 }
 
 
@@ -189,36 +221,24 @@ workflow {
     profile_function(merged_reads)
 
     ch_genefamilies = profile_function.out.profile_function_gf
-                .map { meta, table ->
-                    def meta_new = meta - meta.subMap('id')
-                    meta_new.put('type','genefamilies')
-                    [ meta_new, table ]
-                }
+                .map { meta, table -> [ [run: meta.run, type: 'genefamilies'], table ] }
+                .mix( skipReinject(input_ch.skip, 'genefamilies', 'function', '_2_genefamilies.tsv') )
                 .groupTuple()
 
     ch_reactions = profile_function.out.profile_function_reactions
-                .map { meta, table ->
-                    def meta_new = meta - meta.subMap('id')
-                    meta_new.put('type','reactions')
-                    [ meta_new, table ]
-                }
+                .map { meta, table -> [ [run: meta.run, type: 'reactions'], table ] }
+                .mix( skipReinject(input_ch.skip, 'reactions', 'function', '_3_reactions.tsv') )
                 .groupTuple()
 
     ch_pathabundance = profile_function.out.profile_function_pa
-                .map { meta, table ->
-                    def meta_new = meta - meta.subMap('id')
-                    meta_new.put('type','pathabundance')
-                    [ meta_new, table ]
-                }
+                .map { meta, table -> [ [run: meta.run, type: 'pathabundance'], table ] }
+                .mix( skipReinject(input_ch.skip, 'pathabundance', 'function', '_4_pathabundance.tsv') )
                 .groupTuple()
 
     // HUMAnN-generated taxonomy profiles (separate from independent MetaPhlAn)
     ch_humann_taxonomy = profile_function.out.profile_function_metaphlan
-                .map { meta, table ->
-                    def meta_new = meta - meta.subMap('id')
-                    meta_new.put('type','metaphlan_profile')
-                    [ meta_new, table ]
-                }
+                .map { meta, table -> [ [run: meta.run, type: 'metaphlan_profile'], table ] }
+                .mix( skipReinject(input_ch.skip, 'metaphlan_profile', 'function', '_1_metaphlan_profile.tsv') )
                 .groupTuple()
 
     combine_humann_tables(ch_genefamilies.mix(ch_reactions, ch_pathabundance))
@@ -242,11 +262,8 @@ workflow {
 
   // Metaphlan
   ch_metaphlan = profile_taxa.out.to_profile_function_bugs
-            .map {
-              meta, table ->
-                  def meta_new = meta - meta.subMap('id')
-              [ meta_new, table ]
-            }
+            .map { meta, table -> [ [run: meta.run], table ] }
+            .mix( skipReinject(input_ch.skip, null, 'taxa', '_metaphlan.biom') )
             .groupTuple()
 
   combine_metaphlan_tables(ch_metaphlan)
