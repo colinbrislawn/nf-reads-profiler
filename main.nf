@@ -283,10 +283,27 @@ workflow {
       .map { meta, reads -> [meta.run, [[meta, reads]]] }
       .set { studies_with_samples }
 
+    // skipCompleted re-injection: samples skipped at ingest never run the per-sample
+    // map, so without this their study would lose them at the reduce — the merge would
+    // truncate to only the freshly-run samples (the skipCompleted bug). Feed each
+    // skipped sample's already-published Bracken .b2 feature counts (one per level)
+    // straight into the study+level merge. output_exists() guarantees these .b2 files
+    // exist for any sample it skipped, so the file() references resolve.
+    input_ch.skip
+      .flatMap { row ->
+        def meta = row[0]
+        ['D', 'G', 'S'].collect { lev ->
+          [ [study: meta.run, level: lev],
+            file("${params.outdir}/${params.project}/${meta.run}/medi/bracken/${lev}/${lev}_${meta.id}.b2") ]
+        }
+      }
+      .set { medi_skip_counts }
+
     MEDI_QUANT(
       studies_with_samples,
       params.medi_food_matches,
-      params.medi_food_contents
+      params.medi_food_contents,
+      medi_skip_counts
     )
   }
 

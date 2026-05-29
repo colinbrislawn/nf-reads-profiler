@@ -7,7 +7,9 @@ workflow MEDI_QUANT {
         studies_with_samples // channel of [study_id, [samples]] where samples are [[meta, reads], ...]
         foods_file_path      // String path to foods file on mounted filesystem
         food_contents_file_path  // String path to food contents file on mounted filesystem
-        
+        skipped_counts       // channel of [ [study, level], b2_file ] for skipCompleted-skipped
+                             // samples, re-injected into the merge so the reduce stays complete
+
     main:
         channel
             .fromList(["D", "G", "S"])
@@ -38,12 +40,15 @@ workflow MEDI_QUANT {
 
         count_taxa(kraken_report.out.combine(levels))
 
-        // Group by study and taxonomic level for merging (multiple studies possible)
+        // Group by study and taxonomic level for merging (multiple studies possible).
+        // Mix in skipped samples' re-injected .b2 files so the merge includes every
+        // sample in the study, not just the ones freshly run this invocation.
         count_taxa.out
-            .map{meta, lev, file -> 
+            .map{meta, lev, file ->
                 def group_key = [study: meta.run, level: lev]
                 [group_key, file]
             }
+            .mix(skipped_counts)
             .groupTuple()
             .set{merge_groups}
         
@@ -73,7 +78,10 @@ workflow MEDI_QUANT {
         // Convert MEDI CSV outputs to BIOM format
         convert_medi_to_biom(quantify.out)
 
-        // quality overview - collect filtered kraken reports by study for multiqc
+        // quality overview - collect filtered kraken reports by study for multiqc.
+        // Note: skipped samples are NOT re-injected here — their kraken reports aren't
+        // published, so the MEDI MultiQC reflects only freshly-run samples. The food
+        // reduce (above) is complete; this QC view may be partial on a skip-resume.
         kraken_report.out
             .map{meta, file -> [meta.run, file]}  // Group by study
             .groupTuple()
