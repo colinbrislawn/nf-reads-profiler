@@ -83,8 +83,13 @@ def output_exists(meta) {
   def pathabundance_file = file("${params.outdir}/${params.project}/${run}/function/${name}_4_pathabundance.tsv")
   def humann_done = genefamilies_file.exists() && reactions_file.exists() && pathabundance_file.exists()
   if (!params.enable_medi) { return humann_done }
-  def medi_file = file("${params.outdir}/${params.project}/${run}/medi/kraken2/${name}_filtered.k2")
-  return humann_done && medi_file.exists()
+  // The MEDI quantify reduce merges per-sample Bracken .b2 feature counts (one per
+  // level). These are the only per-sample MEDI files we publish, so they are the
+  // intermediates skip must verify before dropping a sample from the merge.
+  def medi_done = ['D', 'G', 'S'].every { lev ->
+    file("${params.outdir}/${params.project}/${run}/medi/bracken/${lev}/${lev}_${name}.b2").exists()
+  }
+  return humann_done && medi_done
 }
 
 
@@ -254,6 +259,14 @@ workflow {
     }
     if (params.skipHumann) {
       error "enable_medi requires skipHumann=false — MEDI uses HUMAnN diamond_unaligned reads"
+    }
+    // Mapping mode runs a second reduce (merge_mappings) over per-sample mapping
+    // summaries. Skipped samples are dropped from the channel and (unlike the food
+    // path's .b2 files) their mapping inputs are neither published nor re-injected, so
+    // mappings.csv would be missing the skipped samples. Fail fast. (params.mapping is
+    // untested; see subworkflows/quant.nf.)
+    if (params.mapping && params.skipCompleted.toBoolean()) {
+      error "params.mapping is incompatible with skipCompleted — skipped samples would be dropped from the mapping reduce, producing an incomplete mappings.csv. Set mapping=false or skipCompleted=false."
     }
 
     // Stream each sample into MEDI as it finishes HUMAnN — no waiting for study-mates.

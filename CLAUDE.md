@@ -104,10 +104,14 @@ Early-exit: `output_exists(meta)` in `main.nf` checks whether all three HUMAnN
 TSVs already exist in `outdir/project/run/function/` — used to skip samples on
 resume-style reruns.
 
-The HUMAnN biom-conversion branch (`convert_tables_to_biom` →
-`regroup_genefamilies`) is currently **commented out** in `main.nf`. The
-workflow stops at combined TSVs + `split_stratified_tables`. Don't reintroduce
-the biom steps without also re-enabling them in the workflow.
+The HUMAnN biom-conversion branch (`split_stratified_tables` →
+`convert_tables_to_biom`) is **active** for every non-`skipHumann` run (enabled
+in `57da5a3`, 2026-05-12, which removed the old `params.annotation` gate). It
+runs after `combine_humann_tables`: splits each combined TSV into
+stratified/unstratified, then converts every (type × stratification) to `.biom`
+under `outdir/<project>/<run>/combined_tables/` and the per-type
+`outdir/<project>/combined_bioms/`. `regroup_genefamilies` is a further branch
+gated on `params.humann_regroup` (off by default).
 
 ## Databases
 
