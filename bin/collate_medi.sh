@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# medi_reduce.sh — rebuild the MEDI reduce from published per-sample Bracken
+# collate_medi.sh — rebuild the MEDI reduce from published per-sample Bracken
 # .b2 files.
 #
 # MEDI is a map-reduce: the per-sample map (kraken → architeuthis → bracken)
@@ -22,7 +22,7 @@
 # kraken2 .k2 files are NOT needed (which is why they are no longer published).
 #
 # Usage:
-#   bin/medi_reduce.sh <study_s3_uri> [db_dir] [--dry-run]
+#   bin/collate_medi.sh <study_s3_uri> [db_dir] [--dry-run]
 #
 #   study_s3_uri  s3://<bucket>/results/<project>/<run>
 #                 (contains medi/bracken/{D,G,S}/*.b2)
@@ -33,7 +33,7 @@
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
-STUDY_URI="${1:?usage: medi_reduce.sh <study_s3_uri> [db_dir] [--dry-run]}"
+STUDY_URI="${1:?usage: collate_medi.sh <study_s3_uri> [db_dir] [--dry-run]}"
 DB="${2:-/home/ubuntu/disk_dbs/referencedata/medi_db}"
 DRY_RUN=false
 for arg in "$@"; do [ "$arg" = "--dry-run" ] && DRY_RUN=true; done
@@ -54,14 +54,18 @@ SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # for medi_csv_to_biom
 [ -f "$DB/food_matches.csv" ] || { echo "ERROR: $DB/food_matches.csv not found"; exit 1; }
 [ -f "$DB/food_contents.csv.gz" ] || { echo "ERROR: $DB/food_contents.csv.gz not found"; exit 1; }
 
-# Stage under $HOME (or MEDI_REDUCE_SCRATCH), not /tmp: the Docker daemon must be
-# able to traverse the bind-mount source, which a user-private /tmp may block.
-WORK="$(mktemp -d -p "${MEDI_REDUCE_SCRATCH:-$HOME}" medi_reduce.XXXXXX)"
-trap 'rm -rf "$WORK"' EXIT
-echo "[medi_reduce] study=$RUN  work=$WORK  db=$DB  dry_run=$DRY_RUN"
+source "$(dirname "${BASH_SOURCE[0]}")/_collate_lib.sh"
+
+# Stage under a real on-disk path Docker can bind-mount (not /tmp, which a
+# user-private mount may block from the daemon). Default /mnt/scratch — the root
+# volume is small; a big study's staging can be large.
+WORK="$(mktemp -d -p "${COLLATE_SCRATCH:-/mnt/scratch}" collate_medi.XXXXXX)"
+trap 'kill "${_MEM_PID:-}" 2>/dev/null; rm -rf "$WORK"' EXIT
+start_mem_sampler collate_medi
+echo "[collate_medi] study=$RUN  work=$WORK  db=$DB  dry_run=$DRY_RUN"
 
 # 1. Stage per-sample .b2 files from S3 (preserving D/G/S subdirs).
-echo "[medi_reduce] downloading .b2 files from $STUDY_URI/medi/bracken/"
+echo "[collate_medi] downloading .b2 files from $STUDY_URI/medi/bracken/"
 aws s3 cp "$STUDY_URI/medi/bracken/" "$WORK/" --recursive --exclude '*' --include '*.b2' --only-show-errors
 for l in "${LEVELS[@]}"; do
   n=$(ls "$WORK/$l/"*.b2 2>/dev/null | wc -l)
@@ -90,16 +94,17 @@ docker run --rm -v "$WORK":/work -v "$SCRIPTS":/scripts:ro -w /work "$MPA_IMG" b
 sc_col=$(head -1 "$WORK/food_abundance.csv" | tr ',' '\n' | grep -nx sample_id | cut -d: -f1)
 n_food=$(tail -n +2 "$WORK/food_abundance.csv" | cut -d',' -f"$sc_col" | sort -u | wc -l)
 n_b2=$(ls "$WORK/S/"*.b2 | wc -l)
-echo "[medi_reduce] rebuilt food_abundance samples=$n_food  (.b2 samples=$n_b2)"
+echo "[collate_medi] rebuilt food_abundance samples=$n_food  (.b2 samples=$n_b2)"
 [ "$n_food" = "$n_b2" ] || echo "WARNING: sample count mismatch — investigate before trusting outputs"
 
+report_mem
 if [ "$DRY_RUN" = true ]; then
-  echo "[medi_reduce] --dry-run: outputs left in $WORK (not uploaded)"; trap - EXIT
+  echo "[collate_medi] --dry-run: outputs left in $WORK (not uploaded)"; trap - EXIT
   echo "$WORK"; exit 0
 fi
 
 # 5. Upload reduce outputs to their published locations.
-echo "[medi_reduce] uploading results to S3"
+echo "[collate_medi] uploading results to S3"
 for l in "${LEVELS[@]}"; do
   aws s3 cp "$WORK/${l}_merged.csv" "$STUDY_URI/medi/merged/${l}_merged.csv" --only-show-errors
   aws s3 cp "$WORK/${l}_counts.csv" "$STUDY_URI/medi/${l}_counts.csv"         --only-show-errors
@@ -109,4 +114,4 @@ aws s3 cp "$WORK/food_content.csv"   "$STUDY_URI/medi/food_content.csv"   --only
 aws s3 cp "$WORK/${RUN}_food_abundance.biom"          "$PROJECT_URI/combined_bioms/medi/${RUN}_food_abundance.biom"          --only-show-errors
 aws s3 cp "$WORK/${RUN}_food_content_nutrients.biom"  "$PROJECT_URI/combined_bioms/medi/${RUN}_food_content_nutrients.biom"  --only-show-errors
 aws s3 cp "$WORK/${RUN}_food_content_compounds.biom"  "$PROJECT_URI/combined_bioms/medi/${RUN}_food_content_compounds.biom"  --only-show-errors
-echo "[medi_reduce] done — $RUN reduce republished with $n_food samples"
+echo "[collate_medi] done — $RUN reduce republished with $n_food samples"
