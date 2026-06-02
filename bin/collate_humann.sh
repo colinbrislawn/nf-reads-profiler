@@ -36,6 +36,9 @@ for arg in "$@"; do [ "$arg" = "--dry-run" ] && DRY_RUN=true; done
 
 HUMANN_IMG="${HUMANN_IMG:-barbarahelena/humann:4.0.3}"
 MPA_IMG="${MPA_IMG:-colinbrislawn/metaphlan:4.2.4}"
+# Parallelism for the scatter-gather humann_join_tables (see _humann_join_parallel.py).
+JOIN_THREADS="${HUMANN_JOIN_THREADS:-12}"
+JOIN_CHUNK="${HUMANN_CHUNK_SIZE:-150}"
 
 # type -> per-sample file suffix (the substring humann_join_tables --file_name uses).
 TYPES=(genefamilies reactions pathabundance)
@@ -104,13 +107,17 @@ else:
 print(f"  {out}: {'data' if has_data else 'empty-placeholder'}")
 PY
 
-# 2. HUMAnN container: join each type, split stratified/unstratified, convert to biom.
+# Parallel scatter-gather join helper (replaces the single-threaded humann_join_tables).
+cp "$(dirname "${BASH_SOURCE[0]}")/_humann_join_parallel.py" "$WORK/_humann_join_parallel.py"
+
+# 2. HUMAnN container: join each type (parallel), split stratified/unstratified, convert to biom.
 cat > "$WORK/humann_step.sh" <<EOF
 set -euo pipefail
 cd /work
 for t in ${TYPES[*]}; do
-  echo "[collate_humann] joining \$t ..."
-  humann_join_tables -i function -o out/${RUN}_\${t}_combined.tsv --file_name \$t --verbose
+  echo "[collate_humann] joining \$t (parallel: ${JOIN_THREADS} threads x ${JOIN_CHUNK}/chunk) ..."
+  python3 _humann_join_parallel.py function \$t out/${RUN}_\${t}_combined.tsv \\
+    --threads ${JOIN_THREADS} --chunk-size ${JOIN_CHUNK}
   echo "[collate_humann] splitting \$t ..."
   humann_split_stratified_table -i out/${RUN}_\${t}_combined.tsv -o out
   # split emits out/${RUN}_\${t}_combined_{stratified,unstratified}.tsv
@@ -140,8 +147,9 @@ for t in "${TYPES[@]}"; do
   [ "$ncol" = "$nin" ] || echo "  WARNING: $t sample count mismatch"
 done
 # merge_metaphlan_tables.py prefixes a #mpa_... comment line; the column header is
-# the first non-# line.
-ntax=$(grep -v '^#' "$WORK/out/${RUN}_humann_taxonomy_combined.tsv" | head -1 | awk -F'\t' '{print NF-1}')
+# the first non-# line. awk reads the file directly (no grep|head pipe, which would
+# SIGPIPE grep and trip set -o pipefail).
+ntax=$(awk -F'\t' '!/^#/{print NF-1; exit}' "$WORK/out/${RUN}_humann_taxonomy_combined.tsv")
 echo "  humann_taxonomy: combined=$ntax  inputs=$n_mpa"
 
 report_mem
