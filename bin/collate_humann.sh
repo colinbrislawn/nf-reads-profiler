@@ -107,23 +107,22 @@ else:
 print(f"  {out}: {'data' if has_data else 'empty-placeholder'}")
 PY
 
-# Parallel scatter-gather join helper (replaces the single-threaded humann_join_tables).
-cp "$(dirname "${BASH_SOURCE[0]}")/_humann_join_parallel.py" "$WORK/_humann_join_parallel.py"
+# Parallel collate helper: per chunk it joins + splits + biom-converts ~JOIN_CHUNK
+# samples in parallel, then concats the per-chunk bioms (safe_cluster_process.join_biom_files)
+# — so biom convert never runs on the full (tens-of-GB) combined table. Needs
+# safe_cluster_process.py importable alongside it.
+cp "$(dirname "${BASH_SOURCE[0]}")/_humann_collate_parallel.py" "$WORK/_humann_collate_parallel.py"
+cp "$(dirname "${BASH_SOURCE[0]}")/safe_cluster_process.py"     "$WORK/safe_cluster_process.py"
 
-# 2. HUMAnN container: join each type (parallel), split stratified/unstratified, convert to biom.
+# 2. HUMAnN container: collate each type (parallel join+split+biom -> combined.tsv + 2 bioms).
 cat > "$WORK/humann_step.sh" <<EOF
 set -euo pipefail
 cd /work
 for t in ${TYPES[*]}; do
-  echo "[collate_humann] joining \$t (parallel: ${JOIN_THREADS} threads x ${JOIN_CHUNK}/chunk) ..."
-  python3 _humann_join_parallel.py function \$t out/${RUN}_\${t}_combined.tsv \\
+  echo "[collate_humann] collating \$t (parallel join+split+biom: ${JOIN_THREADS} threads x ${JOIN_CHUNK}/chunk) ..."
+  python3 _humann_collate_parallel.py function \$t out/${RUN}_\${t} \\
     --threads ${JOIN_THREADS} --chunk-size ${JOIN_CHUNK}
-  echo "[collate_humann] splitting \$t ..."
-  humann_split_stratified_table -i out/${RUN}_\${t}_combined.tsv -o out
-  # split emits out/${RUN}_\${t}_combined_{stratified,unstratified}.tsv
-  for s in stratified unstratified; do
-    python3 tobiom.py out/${RUN}_\${t}_combined_\${s}.tsv out/${RUN}_\${t}_\${s}.biom 'Function table'
-  done
+  # emits out/${RUN}_\${t}_combined.tsv, _stratified.biom, _unstratified.biom
 done
 EOF
 docker run --rm --user "$(id -u):$(id -g)" -v "$WORK":/work -w /work "$HUMANN_IMG" bash /work/humann_step.sh
