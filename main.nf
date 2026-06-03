@@ -94,7 +94,7 @@ def output_exists(meta) {
       "${base}/function/${name}_2_genefamilies.tsv",
       "${base}/function/${name}_3_reactions.tsv",
       "${base}/function/${name}_4_pathabundance.tsv",
-    ].every { file(it).exists() }
+    ].every { f -> file(f).exists() }
     if (!humann_done) { return false }
   }
 
@@ -299,6 +299,15 @@ workflow {
     profile_function.out.unmapped_reads
       .map { meta, reads -> [meta.run, [[meta, reads]]] }
       .set { studies_with_samples }
+
+    // Warn (don't fail) when a sample produced no before-diamond unaligned reads:
+    // MetaPhlAn prescreen found 0 species, so HUMAnN skipped nucleotide search and
+    // wrote no bowtie2_unaligned.fa. The sample is silently absent from MEDI (its
+    // HUMAnN/taxa outputs are still valid). Unseen on real data; only tiny inputs.
+    profile_function.out.profile_function_metaphlan
+      .join(profile_function.out.unmapped_reads, remainder: true)
+      .filter { row -> row[2] == null }
+      .subscribe { row -> log.warn "Sample ${row[0].id} produced no unaligned reads (MetaPhlAn prescreen found 0 species) — excluded from MEDI" }
 
     // skipCompleted re-injection: samples skipped at ingest never run the per-sample
     // map, so without this their study would lose them at the reduce — the merge would
