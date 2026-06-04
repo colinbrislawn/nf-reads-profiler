@@ -61,6 +61,26 @@ infra/packer/disable-fsr.sh
 # Kill-switch: disables ALL FSR-enabled snapshots in us-east-2 (catches stale AMI rollovers too)
 ```
 
+### Detecting when a run has ended
+
+A finished run leaves no `nextflow run` process and no Docker containers, but
+those alone are racy. Reliable signals, in order of preference:
+
+- **`.nextflow.log`** — the definitive end marker is the final line
+  `Execution complete -- Goodbye` (preceded by `Session await > all barriers
+  passed`). Grep it: `grep -c 'Execution complete -- Goodbye' .nextflow.log`.
+  This is written for both success and failure.
+- **Console/tee output** — the pipeline prints `[SUCCESS] completed=N failed=M
+  cached=K` (or a failure summary) as its last lines. Good for at-a-glance
+  status, but only present if you teed stdout (e.g. `... | tee /tmp/run.out`).
+- **`nextflow log` / `.nextflow/history`** — the run's status column flips to
+  `OK`/`ERR` once it ends; `-` means still running or killed. Lags slightly
+  behind the log's Goodbye line.
+
+Don't rely on the `screen` session disappearing — if you launched with
+`screen -dmS name bash -c "... | tee ..."`, the session ends the instant the
+command returns, so its absence tells you nothing about success vs. failure.
+
 Profile-to-config mapping is in `nextflow.config`:
 - `aws` → `conf/aws_batch.config` (s3 workDir, `awsbatch` executor, Graviton spot queue)
 - `azure` → `conf/azurebatch.config`
