@@ -124,8 +124,14 @@ process combine_humann_tables {
 
   container params.docker_container_humann4
 
-  publishDir {"${params.outdir}/${params.project}/${run}/combined_tables" }, mode: 'copy', pattern: "*.{tsv,log}"
-  
+  // Drop the genefamilies combined TSV from publishing: it's the single largest
+  // output (~24 GB/run) and is fully reconstructable from the published
+  // *_genefamilies_{stratified,unstratified}.biom. The file still lands in workDir,
+  // so split_stratified_tables consumes it via the channel as before — only the S3
+  // copy is skipped. reactions/pathabundance combined TSVs (~0.1 GB) stay published.
+  publishDir {"${params.outdir}/${params.project}/${run}/combined_tables" }, mode: 'copy', pattern: "*.{tsv,log}",
+    saveAs: { fn -> fn ==~ /.*_genefamilies_combined\.tsv$/ ? null : fn }
+
   input:
   tuple val(meta), path(table)
 
@@ -169,7 +175,9 @@ process combine_metaphlan_tables {
 
   container params.docker_container_metaphlan
 
-  publishDir {"${params.outdir}/${params.project}/${run}/combined_tables" }, mode: 'copy', pattern: "*.biom"
+  // biom published only to the project-level combined_bioms/ rollup (the canonical
+  // home, shared with MEDI); the per-run combined_tables/ copy was a byte-for-byte
+  // duplicate.
   publishDir {"${params.outdir}/${params.project}/combined_bioms/metaphlan" }, mode: 'copy', pattern: "*.biom"
   
   input:
@@ -243,7 +251,8 @@ process convert_tables_to_biom {
 
   container params.docker_container_humann4
 
-  publishDir {"${params.outdir}/${params.project}/${run}/combined_tables" }, mode: 'copy', pattern: "*.biom"
+  // biom published only to the project-level combined_bioms/<type>/ rollup; the
+  // per-run combined_tables/ copy was a byte-for-byte duplicate (~5.9 GB/run).
   publishDir {"${params.outdir}/${params.project}/combined_bioms/genefamilies" }, mode: 'copy', pattern: "*_genefamilies*.biom"
   publishDir {"${params.outdir}/${params.project}/combined_bioms/pathabundance" }, mode: 'copy', pattern: "*_pathabundance*.biom"
   publishDir {"${params.outdir}/${params.project}/combined_bioms/reactions" }, mode: 'copy', pattern: "*_reactions*.biom"
@@ -347,7 +356,8 @@ process regroup_genefamilies {
 
   container params.docker_container_humann4
 
-  publishDir {"${params.outdir}/${params.project}/${run}/function/regrouped" }, mode: 'copy', pattern: "*.biom"
+  // biom published only to the project-level combined_bioms/regrouped/ rollup,
+  // consistent with the other biom outputs (was dual-published per-run).
   publishDir {"${params.outdir}/${params.project}/combined_bioms/regrouped" }, mode: 'copy', pattern: "*.biom"
 
   input:

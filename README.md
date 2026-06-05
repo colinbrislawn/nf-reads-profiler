@@ -75,6 +75,52 @@ nextflow run main.nf -profile test_medi -resume
 | `infra/packer/enable-fsr.sh` | Enable EBS Fast Snapshot Restore so spot queue VMs dehydrate faster |
 | `infra/packer/disable-fsr.sh` | Disable FSR after run to stop $0.75/AZ/hr billing |
 
+## Output
+
+All results land under `outdir/<project>/`. Three tiers: per-sample → per-study
+combines → project-wide biom rollup. Layout below was verified against a real
+2890-sample run (`diversigen-infant`).
+
+```
+outdir/<project>/<run>/
+  ├── readcount/<id>_readcount.txt          # read count per sample
+  ├── taxa/<id>_metaphlan.biom              # MetaPhlAn4 profile per sample
+  ├── function/                             # HUMAnN4, per sample (skipped if --skipHumann)
+  │     ├── <id>_0.log
+  │     ├── <id>_1_metaphlan_profile.tsv    # HUMAnN-internal MetaPhlAn
+  │     ├── <id>_2_genefamilies.tsv
+  │     ├── <id>_3_reactions.tsv
+  │     └── <id>_4_pathabundance.tsv
+  ├── combined_tables/                      # per-study combines, TSV only (HUMAnN)
+  │     └── <run>_<type>_combined.tsv       # type = reactions | pathabundance | humann_taxonomy
+  │                                         #   (genefamilies_combined.tsv NOT published — too big, ~24 GB;
+  │                                         #    reconstructable from its stratified/unstratified biom)
+  ├── medi/                                 # only if --enable_medi
+  │     ├── bracken/<lev>/<lev>_<id>.b2     # per-sample Bracken counts (D/G/S); .b2 only
+  │     ├── food_abundance.csv, food_content.csv
+  │     ├── <lev>_counts.csv                # D/G/S lineage-annotated counts (medi/ root)
+  │     ├── merged/<lev>_merged.csv         # D/G/S merged
+  │     ├── multiqc_report.html
+  │     └── architeuthis/<id>_mapping.csv, mappings.csv   # only if --mapping (off by default)
+  └── log/                                  # nf-profile-reads-Report_multiqc_report.html + _data/
+
+outdir/<project>/combined_bioms/            # project-wide biom rollup, one dir per type
+                                            # — the single home for ALL biom (no per-run copy)
+  ├── metaphlan/<run>_metaphlan_combined.biom
+  ├── genefamilies/<run>_genefamilies_{stratified,unstratified}.biom
+  ├── pathabundance/<run>_pathabundance_{stratified,unstratified}.biom
+  ├── reactions/<run>_reactions_{stratified,unstratified}.biom
+  ├── humann_taxonomy/<run>_humann_taxonomy.biom
+  ├── regrouped/                            # only if --humann_regroup (off by default)
+  └── medi/<run>_food_abundance.biom, _food_content_nutrients.biom, _food_content_compounds.biom
+
+outdir/<project>/reports/                   # timeline, report, trace (timestamped via params.ts)
+```
+
+Kraken2 intermediates (`.k2`/`.tsv`) and the Bracken `*_bracken.tsv` side-file are
+**not** published — they flow through channels only (publishDir commented out in
+`subworkflows/quant.nf`).
+
 ## Databases
 
 Although the databases have been stored at the appropriate `/mnt/efs/databases` location mentioned in the config file. There might come a time when these need to be updated. Here is a quick view on how to do that.
