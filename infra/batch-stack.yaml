@@ -130,6 +130,101 @@ Resources:
   # It is NOT created by this stack. IAM policies below reference it by name.
 
 # ---------------------------------------------------------------------------
+# ECR
+# ---------------------------------------------------------------------------
+
+  EcrMetaphlan:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: metaphlan
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  EcrAwsCliBash:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: aws-cli-bash
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  EcrSraToolsBash:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: sra-tools-bash
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  EcrMedi:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: medi
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  EcrHumann:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: humann
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  EcrFastp:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: fastp
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  EcrMultiqc:
+    Type: AWS::ECR::Repository
+    DependsOn: NextflowRunnerPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: multiqc
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+# ---------------------------------------------------------------------------
 # IAM
 # ---------------------------------------------------------------------------
 
@@ -354,6 +449,22 @@ Resources:
               - events:RemoveTargets
               - events:ListTargetsByRule
             Resource: !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/${ProjectTag}-*"
+          - Sid: ECRPushPull
+            Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+              - ecr:CreateRepository
+              - ecr:DescribeRepositories
+              - ecr:GetRepositoryPolicy
+              - ecr:BatchCheckLayerAvailability
+              - ecr:InitiateLayerUpload
+              - ecr:UploadLayerPart
+              - ecr:CompleteLayerUpload
+              - ecr:PutImage
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+              - ecr:TagResource
+            Resource: '*'
 
 # ---------------------------------------------------------------------------
 # Networking

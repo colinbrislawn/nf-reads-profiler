@@ -28,6 +28,39 @@ docker buildx build --platform linux/arm64 -t colinbrislawn/metaphlan:4.2.4 --pu
 docker buildx build --platform linux/arm64 -t colinbrislawn/medi:0.2.1 --push medi
 ```
 
+## ECR (AWS private registry)
+
+Authenticate once per session, then build and push to ECR:
+
+```sh
+ECR=730883236839.dkr.ecr.us-east-2.amazonaws.com
+aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin $ECR
+
+cd docker
+
+# Build and push all ARM, all the time 🦾
+docker buildx build --platform linux/arm64 -t $ECR/aws-cli-bash:2 --push aws-cli-bash
+docker buildx build --platform linux/arm64 -t $ECR/sra-tools-bash:3.0.7 --push sra-tools-bash
+docker buildx build --platform linux/arm64 -t $ECR/metaphlan:4.2.4 --push metaphlan
+docker buildx build --platform linux/arm64 -t $ECR/medi:0.2.1 --push medi
+
+# Mirror public images to our ECR
+docker pull --platform linux/arm64 barbarahelena/humann:4.0.3
+docker tag barbarahelena/humann:4.0.3 $ECR/humann:4.0.3
+docker push $ECR/humann:4.0.3
+
+docker pull --platform linux/arm64 getwilds/fastp:1.1.0
+docker tag getwilds/fastp:1.1.0 $ECR/fastp:1.1.0
+docker push $ECR/fastp:1.1.0
+
+docker pull --platform linux/arm64 ghcr.io/multiqc/multiqc:v1.22.3
+docker tag ghcr.io/multiqc/multiqc:v1.22.3 $ECR/multiqc:v1.22.3
+docker push $ECR/multiqc:v1.22.3
+
+# back to the repo root!
+cd ..
+```
+
 ## hostile index (one-time download)
 
 hostile downloads its human reference index separately from the image.
