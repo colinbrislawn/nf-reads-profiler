@@ -26,6 +26,9 @@ nextflow run main.nf -profile test
 
 # ── Local — with MEDI (I13); screen keeps it alive ─────────────────────────
 screen -S nf-test
+# Lock the Kraken2 hash into RAM before the first job (cold ~30 min; warm <1 min/sample).
+# -d daemonizes so it holds the lock in the background while Nextflow runs.
+vmtouch -dl /mnt/scratch/ssddbs/medi_db/hash.k2d
 nextflow run main.nf -profile test_medi -resume
 # Monitor from another terminal:
 tail -f .nextflow.log
@@ -35,17 +38,25 @@ tail -f .nextflow.log
 FSR_CONFIRM=yes infra/packer/enable-fsr.sh
 # Polls until all 3 us-east-2 AZs reach 'enabled' (~15–30 min for a 150 GB snapshot)
 
-# 2. Launch inside screen so SSH disconnect / Claude Code exit won't kill it:
+# 2. Lock the MEDI Kraken2 hash into RAM (cold ~30 min; warm <1 min/sample).
+# MEDI kraken runs in Docker on this head node — vmtouch on the host warms the
+# shared OS page cache so the container sees it instantly.
+# -d daemonizes so it holds the lock in the background while Nextflow runs.
+vmtouch -dl /mnt/scratch/ssddbs/medi_db/hash.k2d
+
+# 3. Launch inside screen so SSH disconnect / Claude Code exit won't kill it:
 screen -S nf-aws
 nextflow run main.nf -profile aws \
   --input s3://gutz-nf-reads-profilers-runs/samplesheets/<name>.csv \
   --project <project_name> -resume
 # Detach: Ctrl+A D  |  Reattach: screen -r nf-aws
 
-# 3. From another terminal, tail Nextflow's own log:
+# 4. From another terminal, tail Nextflow's own log:
 tail -f .nextflow.log
+grep "status: COMPLETED" .nextflow.log | grep -oP "name: \K\S+" | sort | uniq -c
 
-# 4. After all runs are done for the day, stop FSR billing:
+# 5. After all runs are done for the day, release the lock and stop FSR billing:
+pkill vmtouch
 infra/packer/disable-fsr.sh
 # Kill-switch: disables ALL FSR-enabled snapshots in us-east-2 (catches stale AMI rollovers too)
 ```
@@ -93,10 +104,14 @@ Early-exit: `output_exists(meta)` in `main.nf` checks whether all three HUMAnN
 TSVs already exist in `outdir/project/run/function/` — used to skip samples on
 resume-style reruns.
 
-The HUMAnN biom-conversion branch (`convert_tables_to_biom` →
-`regroup_genefamilies`) is currently **commented out** in `main.nf`. The
-workflow stops at combined TSVs + `split_stratified_tables`. Don't reintroduce
-the biom steps without also re-enabling them in the workflow.
+The HUMAnN biom-conversion branch (`split_stratified_tables` →
+`convert_tables_to_biom`) is **active** for every non-`skipHumann` run (enabled
+in `57da5a3`, 2026-05-12, which removed the old `params.annotation` gate). It
+runs after `combine_humann_tables`: splits each combined TSV into
+stratified/unstratified, then converts every (type × stratification) to `.biom`
+under `outdir/<project>/<run>/combined_tables/` and the per-type
+`outdir/<project>/combined_bioms/`. `regroup_genefamilies` is a further branch
+gated on `params.humann_regroup` (off by default).
 
 ## Databases
 

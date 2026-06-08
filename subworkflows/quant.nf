@@ -52,6 +52,7 @@ workflow MEDI_QUANT {
         
         merge_taxonomy(merge_groups)
 
+        // Untested see summarize_mappings()
         if (params.mapping ?: false) {
             // Get individual mappings
             summarize_mappings(architeuthis_filter.out)
@@ -95,7 +96,8 @@ process kraken {
     label 'kraken'
     scratch false
     container params.docker_container_medi
-    publishDir {"${params.outdir}/${params.project}/${meta.run}/medi/kraken2"}, mode: 'copy'
+    // Debug only — raw .k2/.tsv are consumed downstream via channels, not from disk.
+    // publishDir {"${params.outdir}/${params.project}/${meta.run}/medi/kraken2"}, mode: 'copy'
     cpus 8
 
     input:
@@ -122,7 +124,12 @@ process architeuthis_filter {
     tag "$name"
     label 'low'
     container params.docker_container_medi
-    publishDir {"${params.outdir}/${params.project}/${meta.run}/medi/kraken2"}, mode: 'copy', overwrite: true
+    // Disabling publishDir is safe: architeuthis_filter.out reaches kraken_report (always)
+    // and summarize_mappings (mapping mode) through Nextflow channels, not from the
+    // published outdir — publishDir only persists a copy. We lose only the on-disk copy
+    // that a skip-resume would need to re-inject _filtered.k2, which matters solely to
+    // mapping mode (guarded against skipCompleted in main.nf). Re-enable to restore that.
+    // publishDir {"${params.outdir}/${params.project}/${meta.run}/medi/kraken2"}, mode: 'copy', overwrite: true
 
     input:
     tuple val(meta), path(k2)
@@ -145,7 +152,8 @@ process kraken_report {
     tag "$name"
     label 'low'
     container params.docker_container_medi
-    publishDir {"${params.outdir}/${params.project}/${meta.run}/medi/kraken2"}, mode: 'copy', overwrite: true
+    // Debug only — filtered report .tsv feeds count_taxa/multiqc via channels.
+    // publishDir {"${params.outdir}/${params.project}/${meta.run}/medi/kraken2"}, mode: 'copy', overwrite: true
 
     input:
     tuple val(meta), path(k2)
@@ -161,6 +169,7 @@ process kraken_report {
 }
 
 process summarize_mappings {
+    // Untested see params.mapping
     tag "$name"
     label 'low'
     container params.docker_container_medi
@@ -180,6 +189,7 @@ process summarize_mappings {
 }
 
 process merge_mappings {
+    // Untested see params.mapping
     tag "merge"
     label 'low'
     container params.docker_container_medi
