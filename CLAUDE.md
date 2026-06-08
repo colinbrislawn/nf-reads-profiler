@@ -61,6 +61,26 @@ infra/packer/disable-fsr.sh
 # Kill-switch: disables ALL FSR-enabled snapshots in us-east-2 (catches stale AMI rollovers too)
 ```
 
+### Detecting when a run has ended
+
+A finished run leaves no `nextflow run` process and no Docker containers, but
+those alone are racy. Reliable signals, in order of preference:
+
+- **`.nextflow.log`** — the definitive end marker is the final line
+  `Execution complete -- Goodbye` (preceded by `Session await > all barriers
+  passed`). Grep it: `grep -c 'Execution complete -- Goodbye' .nextflow.log`.
+  This is written for both success and failure.
+- **Console/tee output** — the pipeline prints `[SUCCESS] completed=N failed=M
+  cached=K` (or a failure summary) as its last lines. Good for at-a-glance
+  status, but only present if you teed stdout (e.g. `... | tee /tmp/run.out`).
+- **`nextflow log` / `.nextflow/history`** — the run's status column flips to
+  `OK`/`ERR` once it ends; `-` means still running or killed. Lags slightly
+  behind the log's Goodbye line.
+
+Don't rely on the `screen` session disappearing — if you launched with
+`screen -dmS name bash -c "... | tee ..."`, the session ends the instant the
+command returns, so its absence tells you nothing about success vs. failure.
+
 Profile-to-config mapping is in `nextflow.config`:
 - `aws` → `conf/aws_batch.config` (s3 workDir, `awsbatch` executor, Graviton spot queue)
 - `azure` → `conf/azurebatch.config`
@@ -171,14 +191,35 @@ with retries on labelled processes; AWS defaults to `maxRetries = 0` plus
 
 ## Output layout
 
+Three tiers: per-sample → per-study combines → project-wide biom rollup. Verified
+against a real 2890-sample run (`diversigen-infant`).
+
 ```
 outdir/<project>/<run>/
-  ├── taxa/              # MetaPhlAn profiles
-  ├── function/          # HUMAnN TSVs (genefamilies, pathabundance, pathcoverage)
-  ├── medi/              # only if --enable_medi
-  └── log/
-outdir/<project>/reports/ # timeline, report, trace (timestamped via params.ts)
+  ├── readcount/         # <id>_readcount.txt per sample
+  ├── taxa/              # <id>_metaphlan.biom (MetaPhlAn4) per sample
+  ├── function/          # HUMAnN4 per sample: _1_metaphlan_profile, _2_genefamilies,
+  │                      #   _3_reactions, _4_pathabundance (.tsv) + _0.log; skipped if --skipHumann
+  ├── combined_tables/   # per-study combines, TSV only: <run>_<type>_combined.tsv
+  │                      #   (type = reactions | pathabundance | humann_taxonomy). All biom live in
+  │                      #   combined_bioms/ (no per-run copy). genefamilies_combined.tsv NOT published (~24 GB).
+  ├── medi/              # only if --enable_medi: bracken/<lev>/<lev>_<id>.b2, food_{abundance,content}.csv,
+  │                      #   <lev>_counts.csv (root), merged/<lev>_merged.csv, multiqc_report.html
+  └── log/               # MultiQC report (nf-profile-reads-Report_multiqc_report.html + _data/)
+outdir/<project>/combined_bioms/ # single home for ALL biom, one dir per type: metaphlan/ genefamilies/
+                                 #   pathabundance/ reactions/ humann_taxonomy/ medi/ (+ regrouped/ if --humann_regroup)
+outdir/<project>/reports/        # timeline, report, trace (timestamped via params.ts)
 ```
+
+Biom are published once, to `combined_bioms/<type>/` only (the per-run
+`combined_tables/` biom copy was dropped as a byte-for-byte duplicate). The
+genefamilies combined TSV is not published either (largest single output, ~24 GB;
+reconstructable from its stratified/unstratified biom). Both via `saveAs`/publishDir
+edits in `modules/community_characterisation.nf`.
+
+Kraken2 intermediates (`.k2`/`.tsv`) and Bracken `*_bracken.tsv` are not published
+— channel-only (publishDir commented out in `subworkflows/quant.nf`). `architeuthis/`
++ `mappings.csv` only appear with `--mapping` (off by default; absent in the verified run).
 
 ## Tests
 
